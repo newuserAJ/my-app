@@ -30,11 +30,71 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# Environment files - CRITICAL SECURITY
 .env
-# typescript
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Secrets and keys - NEVER COMMIT
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.mobileprovision
+secrets/
+keys/
+certificates/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and temporary files
+logs/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+tmp/
+temp/
+
+# Build outputs
+dist/
+build/
+lib/
+coverage/
+
+# TypeScript
 *.tsbuildinfo
+
+# IDE files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# Docker volumes and data
+docker-data/
+postgres-data/
+redis-data/
+
+# Testing
+coverage/
+.nyc_output
+junit.xml
 
 app-example
 

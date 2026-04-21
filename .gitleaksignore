@@ -1,0 +1,10 @@
+# GitLeaks ignore file for legitimate test data and false positives
+# Format: [fingerprint]
+
+# Test file with mock passwords for validation testing
+backend/tests/unit/utils/validation.test.ts:custom-password-assignment:93
+backend/tests/unit/utils/validation.test.ts:custom-password-assignment:104 
+backend/tests/unit/utils/validation.test.ts:custom-password-assignment:114
+
+# Allow test constants that are clearly not real passwords
+# These are constructed from concatenated strings to avoid detection
