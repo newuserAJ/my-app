@@ -1,17 +1,18 @@
 // Navigation stack manager to prevent mixed-up routing
-export type SignUpStep = 'name' | 'focus' | 'hub' | 'network' | 'details';
+export type SignUpStep = 'name' | 'phone' | 'details' | 'focus' | 'hub' | 'network' | 'completed';
 
 export interface SignUpState {
   currentStep: SignUpStep;
   firstName: string;
   lastName: string;
-  focus: string | null;
-  hub: string | null;
-  network: string | null;
+  phoneNumber: string;
   day: string;
   month: string;
   year: string;
   gender: string | null;
+  focus: string | null;
+  hub: string | null;
+  network: string | null;
 }
 
 // Initial state
@@ -19,13 +20,14 @@ export const initialSignUpState: SignUpState = {
   currentStep: 'name',
   firstName: '',
   lastName: '',
-  focus: null,
-  hub: null,
-  network: null,
+  phoneNumber: '',
   day: '',
   month: '',
   year: '',
   gender: null,
+  focus: null,
+  hub: null,
+  network: null,
 };
 
 // Validation functions
@@ -33,14 +35,18 @@ export const validateStep = (step: SignUpStep, state: SignUpState): boolean => {
   switch (step) {
     case 'name':
       return !!(state.firstName && state.lastName);
+    case 'phone':
+      return !!(state.phoneNumber && state.phoneNumber.length >= 10);
+    case 'details':
+      return !!(state.day && state.month && state.year && state.gender);
     case 'focus':
       return !!state.focus;
     case 'hub':
       return !!state.hub;
     case 'network':
       return !!state.network;
-    case 'details':
-      return !!(state.day && state.month && state.year && state.gender);
+    case 'completed':
+      return true;
     default:
       return false;
   }
@@ -49,11 +55,13 @@ export const validateStep = (step: SignUpStep, state: SignUpState): boolean => {
 // Get next step in flow
 export const getNextStep = (currentStep: SignUpStep): SignUpStep | null => {
   const flow: Record<SignUpStep, SignUpStep | null> = {
-    name: 'focus',
+    name: 'phone',
+    phone: 'details',
+    details: 'focus',
     focus: 'hub',
     hub: 'network',
-    network: 'details',
-    details: null,
+    network: 'completed',
+    completed: null,
   };
   return flow[currentStep];
 };
@@ -62,10 +70,12 @@ export const getNextStep = (currentStep: SignUpStep): SignUpStep | null => {
 export const getPreviousStep = (currentStep: SignUpStep): SignUpStep | null => {
   const flow: Record<SignUpStep, SignUpStep | null> = {
     name: null,
-    focus: 'name',
+    phone: 'name',
+    details: 'phone',
+    focus: 'details',
     hub: 'focus',
     network: 'hub',
-    details: 'network',
+    completed: 'network',
   };
   return flow[currentStep];
 };

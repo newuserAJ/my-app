@@ -1,37 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, Image, Alert } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { CustomInput } from '../../src/components/CustomInput';
 import { CustomButton } from '../../src/components/CustomButton';
 import { theme } from '../../src/theme';
-import { SignUpState } from '../../src/services/navigationStack';
 
-interface NameScreenProps {
-  onStateUpdate?: (state: Partial<SignUpState>) => void;
-}
-
-export default function NameScreen(props?: NameScreenProps) {
+export default function NameScreen() {
   const router = useRouter();
+  const { phoneNumber } = useLocalSearchParams<{ phoneNumber: string }>();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!firstName || !lastName) return;
     
-    // Update parent state if available
-    props?.onStateUpdate?.({
-      firstName,
-      lastName,
-      currentStep: 'focus',
+    router.push({
+      pathname: '/auth/details',
+      params: { 
+        phoneNumber, 
+        firstName, 
+        lastName 
+      },
     });
-
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      router.push('/auth/focus');
-    }, 1000);
   };
 
   return (
@@ -42,9 +34,9 @@ export default function NameScreen(props?: NameScreenProps) {
           style={styles.logo}
           resizeMode="contain" 
         />
-        <Text style={styles.title}>Here we go!</Text>
+        <Text style={styles.title}>What's Your Name?</Text>
         <Text style={styles.subtitle}>
-          Please provide us with your First Name and your Last Name
+          Help us know you better
         </Text>
       </View>
 
@@ -52,20 +44,33 @@ export default function NameScreen(props?: NameScreenProps) {
         placeholder="First Name"
         value={firstName}
         onChangeText={setFirstName}
+        editable={!loading}
       />
       <CustomInput
         placeholder="Last Name"
         value={lastName}
         onChangeText={setLastName}
+        editable={!loading}
       />
 
       <CustomButton 
         title="Continue" 
         onPress={handleContinue} 
         loading={loading}
-        disabled={!firstName || !lastName}
+        disabled={!firstName || !lastName || loading}
         style={styles.button}
+        animationType="scale"
       />
+
+      <Text style={styles.loginText}>
+        Already have an account?{' '}
+        <Text 
+          style={styles.loginLink}
+          onPress={() => router.push('/auth/login')}
+        >
+          Login here
+        </Text>
+      </Text>
     </ScreenContainer>
   );
 }
@@ -102,5 +107,17 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: 40,
+  },
+  loginText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  loginLink: {
+    fontFamily: theme.fonts.semiBold,
+    color: theme.colors.primary,
+    textDecorationLine: 'underline',
   },
 });

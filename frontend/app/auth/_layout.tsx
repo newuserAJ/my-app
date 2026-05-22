@@ -7,14 +7,11 @@ export default function AuthLayout() {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="name" />
-      <Stack.Screen name="focus" />
-      <Stack.Screen name="hub" />
-      <Stack.Screen name="network" />
-      <Stack.Screen name="details" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="phone" />
-      <Stack.Screen name="verify" />
+      <Stack.Screen name="signup" options={{ title: "Sign Up" }} />
+      <Stack.Screen name="name" options={{ title: "Full Name" }} />
+      <Stack.Screen name="details" options={{ title: "Additional Details" }} />
+      <Stack.Screen name="contacts-permission" options={{ title: "Connect with Friends" }} />
+      <Stack.Screen name="login" options={{ title: "Login" }} />
     </Stack>
   );
 }

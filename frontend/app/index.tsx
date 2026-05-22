@@ -7,11 +7,12 @@ import {
   Afacad_600SemiBold, 
   Afacad_700Bold 
 } from '@expo-google-fonts/afacad';
+import { useAuth } from '../src/context/AuthContext';
 
 export default function App() {
   const router = useRouter();
+  const { user, isLoggedIn, isLoading } = useAuth();
   const [isSplashFinished, setIsSplashFinished] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   let [fontsLoaded] = useFonts({
@@ -21,28 +22,36 @@ export default function App() {
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true, 
-      }).start(() => {
-        setIsSplashFinished(true);
-      });
-    }, 2500);
+    if (!isLoading && fontsLoaded) {
+      const timer = setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true, 
+        }).start(() => {
+          setIsSplashFinished(true);
+        });
+      }, 2500);
 
-    return () => clearTimeout(timer);
-  }, [fadeAnim]);
+      return () => clearTimeout(timer);
+    }
+  }, [fadeAnim, isLoading, fontsLoaded]);
+
+  useEffect(() => {
+    if (isSplashFinished && !isLoggedIn) {
+      router.replace('/auth/login');
+    }
+  }, [isSplashFinished, isLoggedIn, router]);
 
   const handleLogin = () => {
     router.push('/auth/login');
   };
 
   const handleSignUp = () => {
-    router.push('/auth/name');
+    router.push('/auth/signup');
   };
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#C35129" />
@@ -50,74 +59,79 @@ export default function App() {
     );
   }
 
-  if (!isLoggedIn) {
+  if (!isSplashFinished) {
     return (
       <View style={styles.loadingContainer}>
         <Animated.View style={[
           styles.splashCenter, 
-          !isSplashFinished ? { opacity: fadeAnim } : { opacity: 1 }
+          { opacity: fadeAnim }
         ]}>
           <Image 
             source={require('../assets/images/hotake-logo.png')} 
-            style={isSplashFinished ? styles.choiceLogo : styles.splashLogo}
+            style={styles.splashLogo}
             resizeMode="contain" 
           />
-          
-          {isSplashFinished && (
-            <View style={styles.authChoiceContainer}>
-              <TouchableOpacity 
-                style={[styles.choiceButton, styles.loginButton]} 
-                onPress={handleLogin}
-              >
-                <Text style={styles.loginButtonText}>Login</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.choiceButton, styles.signupButton]} 
-                onPress={handleSignUp}
-              >
-                <Text style={styles.signupButtonText}>Sign-up</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </Animated.View>
       </View>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container} bounces={false}>
-        <View style={styles.header}>
-          <Pressable onPress={() => console.log('Go Home')}>
-            {({ pressed }) => (
-              <Text style={[
-                styles.headerText, 
-                { color: pressed ? 'rgba(0, 0, 0, 0.5)' : 'rgb(0, 0, 0)' }
-              ]}>
-                Home
-              </Text>
-            )}
-          </Pressable>
+  if (isLoggedIn && user) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.container} bounces={false}>
+          <View style={styles.header}>
+            <View style={styles.navGroup}>
+              <Pressable onPress={() => console.log('Go Home')}>
+                {({ pressed }) => (
+                  <Text style={[
+                    styles.navText, 
+                    { color: pressed ? 'rgba(0, 0, 0, 0.5)' : 'rgb(0, 0, 0)' }
+                  ]}>
+                    Home
+                  </Text>
+                )}
+              </Pressable>
 
-          <Text style={[styles.headerText, styles.headerTextActive]}>Polls</Text>
-          
-          <View style={styles.walletContainer}>
-            <Text style={styles.walletText}>0</Text>
-            <Text style={styles.diamondEmoji}>💎</Text> 
+              <Pressable onPress={() => router.push('/profile')}>
+                {({ pressed }) => (
+                  <Text style={[
+                    styles.navText, 
+                    { color: pressed ? 'rgba(0, 0, 0, 0.5)' : 'rgb(0, 0, 0)' }
+                  ]}>
+                    Profile
+                  </Text>
+                )}
+              </Pressable>
+
+              <Pressable onPress={() => router.push('/graph')}>
+                {({ pressed }) => (
+                  <Text style={[
+                    styles.navText, 
+                    { color: pressed ? 'rgba(0, 0, 0, 0.5)' : 'rgb(0, 0, 0)' }
+                  ]}>
+                    Network
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+            
           </View>
-        </View>
 
-        <View style={styles.logoContainer}>
-           <Image 
-             source={require('../assets/images/hotake-logo.png')} 
-             style={styles.footerLogo}
-             resizeMode="contain" 
-           />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+          <View style={styles.logoContainer}>
+            <Text style={styles.welcomeText}>Welcome, {user?.firstName || 'User'}!</Text>
+             <Image 
+               source={require('../assets/images/hotake-logo.png')} 
+               style={styles.footerLogo}
+               resizeMode="contain" 
+             />
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -149,44 +163,6 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
   },
-  choiceLogo: {
-    width: 150,
-    height: 150,
-    marginBottom: 50,
-  },
-  authChoiceContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    width: '100%',
-    paddingHorizontal: 20,
-    gap: 15,
-  },
-  choiceButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  loginButton: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#C35129',
-  },
-  signupButton: {
-    backgroundColor: '#C35129',
-    borderColor: '#C35129',
-  },
-  loginButtonText: {
-    fontFamily: 'Afacad-Bold',
-    fontSize: 18,
-    color: '#C35129',
-  },
-  signupButtonText: {
-    fontFamily: 'Afacad-Bold',
-    fontSize: 18,
-    color: '#FFFFFF',
-  },
   
   header: {
     flexDirection: 'row',
@@ -195,25 +171,30 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: 30,
   },
+  navGroup: {
+    flexDirection: 'row',
+    gap: 15,
+  },
   headerText: {
     fontFamily: 'Afacad-Bold',
     fontSize: 20,
   },
-  headerTextActive: { color: '#000000' },
-  walletContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletText: {
+  navText: {
     fontFamily: 'Afacad-Bold',
-    fontSize: 20,
-    marginRight: 4,
+    fontSize: 16,
   },
-  diamondEmoji: { fontSize: 16 },
+  headerTextActive: { color: '#000000' },
 
   logoContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  welcomeText: {
+    fontFamily: 'Afacad-Bold',
+    fontSize: 24,
+    color: '#C35129',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   footerLogo: {
     width: 60,

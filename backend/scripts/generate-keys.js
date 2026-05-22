@@ -71,7 +71,7 @@ function generateEnvTemplate() {
 NODE_ENV=development
 
 # Server Configuration
-PORT=8080
+PORT=8081
 HOST=localhost
 
 # Supabase Configuration (Get from Supabase Dashboard)

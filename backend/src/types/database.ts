@@ -20,7 +20,15 @@ export interface Database {
           phone_number: string | null
           bio: string | null
           date_of_birth: string | null
+          gender: string | null
           location: string | null
+          language: string | null
+          occupation: string | null
+          school: string | null
+          company: string | null
+          interests: string[] | null
+          age: number | null
+          age_group: 'unspecified' | '13-17' | '18-24' | '25-34' | '35-44' | '45-54' | '55-64' | '65+' | null
           website: string | null
           is_verified: boolean
           is_active: boolean
@@ -40,7 +48,15 @@ export interface Database {
           phone_number?: string | null
           bio?: string | null
           date_of_birth?: string | null
+          gender?: string | null
           location?: string | null
+          language?: string | null
+          occupation?: string | null
+          school?: string | null
+          company?: string | null
+          interests?: string[] | null
+          age?: number | null
+          age_group?: 'unspecified' | '13-17' | '18-24' | '25-34' | '35-44' | '45-54' | '55-64' | '65+' | null
           website?: string | null
           is_verified?: boolean
           is_active?: boolean
@@ -60,7 +76,15 @@ export interface Database {
           phone_number?: string | null
           bio?: string | null
           date_of_birth?: string | null
+          gender?: string | null
           location?: string | null
+          language?: string | null
+          occupation?: string | null
+          school?: string | null
+          company?: string | null
+          interests?: string[] | null
+          age?: number | null
+          age_group?: 'unspecified' | '13-17' | '18-24' | '25-34' | '35-44' | '45-54' | '55-64' | '65+' | null
           website?: string | null
           is_verified?: boolean
           is_active?: boolean
@@ -330,6 +354,7 @@ export interface Database {
       post_status: 'draft' | 'published' | 'archived'
       comment_status: 'pending' | 'approved' | 'rejected'
       like_target_type: 'post' | 'comment'
+      age_group: '13-17' | '18-24' | '25-34' | '35-44' | '45-54' | '55-64' | '65+'
     }
   }
 }

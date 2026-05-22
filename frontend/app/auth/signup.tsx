@@ -5,13 +5,10 @@ import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { CustomInput } from '../../src/components/CustomInput';
 import { CustomButton } from '../../src/components/CustomButton';
 import { theme } from '../../src/theme';
-import { useAuth } from '../../src/context/AuthContext';
 
-export default function LoginScreen() {
+export default function SignupScreen() {
   const router = useRouter();
-  const { login, error, clearError } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Clean and validate phone number
@@ -31,53 +28,21 @@ export default function LoginScreen() {
     return cleaned.length === 10 && /^[6-9]\d{9}$/.test(cleaned);
   };
 
-  const handleLogin = async () => {
+  const handleSignup = async () => {
     if (!validatePhoneNumber(phoneNumber)) {
       Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number starting with 6, 7, 8, or 9');
       return;
     }
 
-    if (password.length < 8) {
-      Alert.alert('Invalid Password', 'Password must be at least 8 characters');
-      return;
-    }
-
     setLoading(true);
-    clearError();
-
+    
     try {
-      // Send phone number with +91 prefix to match signup format
-      const fullPhoneNumber = `+91${cleanPhoneNumber(phoneNumber)}`;
-      await login(fullPhoneNumber, undefined, password);
-      // Navigate to home on success - use a small delay to ensure auth state is updated
-      setTimeout(() => {
-        router.replace('/');
-      }, 100);
+      router.push({
+        pathname: '/auth/name',
+        params: { phoneNumber: cleanPhoneNumber(phoneNumber) },
+      });
     } catch (err) {
-      let errorMessage = 'Login failed. Please try again.';
-      let errorTitle = 'Login Failed';
-      
-      if (err instanceof Error) {
-        const message = err.message.toLowerCase();
-        
-        if (message.includes('network') || message.includes('fetch')) {
-          errorTitle = 'Network Error';
-          errorMessage = 'Unable to connect to the server. Please check your internet connection and try again.';
-        } else if (message.includes('invalid credentials') || message.includes('401') || message.includes('unauthorized')) {
-          errorTitle = 'Invalid Credentials';
-          errorMessage = 'Incorrect phone number or password. Please check your credentials and try again.';
-        } else if (message.includes('not found') || message.includes('404')) {
-          errorTitle = 'Account Not Found';
-          errorMessage = 'No account found with this phone number. Please sign up first.';
-        } else if (message.includes('timeout')) {
-          errorTitle = 'Request Timeout';
-          errorMessage = 'The request took too long. Please try again.';
-        } else {
-          errorMessage = err.message;
-        }
-      }
-      
-      Alert.alert(errorTitle, errorMessage);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -91,17 +56,11 @@ export default function LoginScreen() {
           style={styles.logo}
           resizeMode="contain" 
         />
-        <Text style={styles.title}>Welcome Back!</Text>
+        <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>
-          Enter your phone number and password to login
+          Enter your phone number to get started
         </Text>
       </View>
-
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
 
       <View style={styles.inputRow}>
         <View style={styles.countryCode}>
@@ -118,39 +77,22 @@ export default function LoginScreen() {
         />
       </View>
 
-      <CustomInput
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        editable={!loading}
-      />
-
       <CustomButton 
-        title="Login" 
-        onPress={handleLogin} 
+        title="Continue" 
+        onPress={handleSignup} 
         loading={loading}
-        disabled={!validatePhoneNumber(phoneNumber) || password.length < 8 || loading}
+        disabled={!validatePhoneNumber(phoneNumber) || loading}
         style={styles.button}
         animationType="glow"
       />
 
-      <Text style={styles.signupText}>
-        Don't have an account?{' '}
+      <Text style={styles.loginText}>
+        Already have an account?{' '}
         <Text 
-          style={styles.signupLink}
-          onPress={() => router.push('/auth/signup')}
+          style={styles.loginLink}
+          onPress={() => router.push('/auth/login')}
         >
-          Sign up here
-        </Text>
-      </Text>
-
-      <Text style={styles.forgotText}>
-        <Text 
-          style={styles.forgotLink}
-          onPress={() => router.push('/auth/forgot-password')}
-        >
-          Forgot password?
+          Login here
         </Text>
       </Text>
     </ScreenContainer>
@@ -187,20 +129,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     lineHeight: 22,
   },
-  errorContainer: {
-    width: '100%',
-    backgroundColor: '#ffebee',
-    borderLeftWidth: 4,
-    borderLeftColor: '#d32f2f',
-    padding: 12,
-    marginBottom: 20,
-    borderRadius: 4,
-  },
-  errorText: {
-    fontFamily: theme.fonts.regular,
-    fontSize: 14,
-    color: '#d32f2f',
-  },
   inputRow: {
     flexDirection: 'row',
     width: '100%',
@@ -231,25 +159,13 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: 20,
   },
-  signupText: {
-    fontFamily: theme.fonts.regular,
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  signupLink: {
-    fontFamily: theme.fonts.semiBold,
-    color: theme.colors.primary,
-    textDecorationLine: 'underline',
-  },
-  forgotText: {
+  loginText: {
     fontFamily: theme.fonts.regular,
     fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
   },
-  forgotLink: {
+  loginLink: {
     fontFamily: theme.fonts.semiBold,
     color: theme.colors.primary,
     textDecorationLine: 'underline',

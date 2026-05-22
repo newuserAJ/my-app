@@ -5,11 +5,10 @@ import { ValidationError, ErrorDetails } from '../types/errors';
 // Common validation schemas
 export const commonSchemas = {
   email: z.string().email('Invalid email format'),
-  password: z.string().min(8, 'Password must be at least 8 characters long')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+  password: z.string().min(8, 'Password must be at least 8 characters long'),
   uuid: z.string().uuid('Invalid UUID format'),
   objectId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid ObjectId format'),
-  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format'),
+  phoneNumber: z.string().regex(/^\+?[0-9]{9,15}$/, 'Invalid phone number format'),
   url: z.string().url('Invalid URL format'),
   positiveInteger: z.number().int().positive('Must be a positive integer'),
   nonNegativeInteger: z.number().int().min(0, 'Must be a non-negative integer'),
@@ -26,16 +25,34 @@ export const paginationSchema = z.object({
 // Auth schemas
 export const authSchemas = {
   register: z.object({
-    email: commonSchemas.email,
+    email: commonSchemas.email.optional(),
+    phoneNumber: commonSchemas.phoneNumber.optional(),
     password: commonSchemas.password,
-    firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
-    lastName: z.string().min(1, 'Last name is required').max(50, 'Last name too long'),
-  }),
+    firstName: z.string().min(1, 'First name is required').max(50, 'First name too long').optional(),
+    lastName: z.string().min(1, 'Last name is required').max(50, 'Last name too long').optional(),
+    dateOfBirth: z.string().datetime().optional(),
+    gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
+    location: z.string().max(100, 'Location too long').optional(),
+    language: z.string().max(50, 'Language too long').optional(),
+    occupation: z.string().max(100, 'Occupation too long').optional(),
+    school: z.string().max(100, 'School name too long').optional(),
+    company: z.string().max(100, 'Company name too long').optional(),
+    interests: z.array(z.string().max(50, 'Interest name too long')).max(10, 'Too many interests').optional(),
+    age: z.number().int().min(13, 'Must be at least 13 years old').max(120, 'Invalid age').optional(),
+    ageGroup: z.enum(['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']).optional(),
+  }).refine(
+    (data) => data.email || data.phoneNumber,
+    'Either email or phone number is required'
+  ),
   
   login: z.object({
-    email: commonSchemas.email,
+    email: commonSchemas.email.optional(),
+    phoneNumber: commonSchemas.phoneNumber.optional(),
     password: z.string().min(1, 'Password is required'),
-  }),
+  }).refine(
+    (data) => data.email || data.phoneNumber,
+    'Either email or phone number is required'
+  ),
   
   changePassword: z.object({
     currentPassword: z.string().min(1, 'Current password is required'),
@@ -60,6 +77,24 @@ export const userSchemas = {
     phoneNumber: commonSchemas.phoneNumber.optional(),
     bio: z.string().max(500, 'Bio too long').optional(),
     avatar: commonSchemas.url.optional(),
+    dateOfBirth: z.string().datetime().optional(),
+    gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
+    location: z.string().max(100, 'Location too long').optional(),
+    language: z.string().max(50, 'Language too long').optional(),
+    occupation: z.string().max(100, 'Occupation too long').optional(),
+    school: z.string().max(100, 'School name too long').optional(),
+    company: z.string().max(100, 'Company name too long').optional(),
+    interests: z.array(z.string().max(50, 'Interest name too long')).max(10, 'Too many interests').optional(),
+    age: z.number().int().min(13, 'Must be at least 13 years old').max(120, 'Invalid age').optional(),
+    ageGroup: z.enum(['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+']).optional(),
+  }),
+  
+  uploadContacts: z.object({
+    contacts: z.array(z.object({
+      name: z.string().min(1, 'Contact name is required'),
+      phone: commonSchemas.phoneNumber,
+      email: commonSchemas.email.optional(),
+    })).min(1, 'At least one contact is required'),
   }),
 };
 

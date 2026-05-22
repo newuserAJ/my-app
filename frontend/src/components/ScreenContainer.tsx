@@ -23,26 +23,30 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   contentContainerStyle,
   scrollable = true,
 }) => {
-  const Content = scrollable ? ScrollView : View;
-
   return (
     <SafeAreaView style={[styles.safeArea, style]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
       >
-        <Content
-          style={styles.flex}
-          contentContainerStyle={[
-            styles.container,
-            !scrollable && styles.flex,
-            contentContainerStyle,
-          ]}
-          bounces={false}
-          showsVerticalScrollIndicator={false}
-        >
-          {children}
-        </Content>
+        {scrollable ? (
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={[
+              styles.container,
+              contentContainerStyle,
+            ]}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={[styles.flex, styles.container, contentContainerStyle]}>
+            {children}
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

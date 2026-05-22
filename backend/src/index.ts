@@ -18,26 +18,15 @@ import {
 } from './middleware/errorHandler';
 import { sanitizeRequest } from './utils/validation';
 import { requireAuth } from './middleware/auth';
-import { 
-  generalRateLimit, 
-  authRateLimit, 
-  createContentRateLimit 
-} from './middleware/rateLimiting';
-import { 
-  securityHeaders, 
-  suspiciousRequestDetector, 
-  validateUserAgent,
-  contentSecurityPolicy,
-  securityLogger,
-  honeypot,
-  enforceApiVersion 
-} from './middleware/security';
 import { authRouter } from './routes/auth';
 import { postsRouter } from './routes/posts';
 import { commentsRouter } from './routes/comments';
 import { usersRouter } from './routes/users';
 import { categoriesRouter } from './routes/categories';
 import { tagsRouter } from './routes/tags';
+import { contactsRouter } from './routes/contacts';
+import friendRecommendationsRouter from './routes/friend-recommendations';
+import graphRouter from './routes/graph';
 
 // Handle process events
 handleUnhandledRejection();
@@ -45,50 +34,21 @@ handleUncaughtException();
 
 const app = express();
 
-// Trust proxy (important for rate limiting and getting real IP addresses)
-app.set('trust proxy', 1);
-
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true,
-  },
-}));
+// Security middleware (basic)
+app.use(helmet());
 
 // CORS configuration
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.ALLOWED_ORIGINS?.split(',') || []
-    : true, // Allow all origins in development
+    : true,
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 app.use(cors(corsOptions));
-
-// Security middleware
-app.use(securityHeaders);
-app.use(contentSecurityPolicy);
-app.use(securityLogger);
-app.use(validateUserAgent);
-app.use(suspiciousRequestDetector);
-app.use(enforceApiVersion(['v1']));
-app.use(honeypot('/admin'));
-
-// Rate limiting
-app.use(generalRateLimit);
 
 // Request parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -113,13 +73,16 @@ app.use((req, _res, next) => {
   next();
 });
 
-// API Routes with specific rate limiting
-app.use('/api/auth', authRateLimit, authRouter);
-app.use('/api/posts', createContentRateLimit, postsRouter);
-app.use('/api/comments', createContentRateLimit, commentsRouter);
+// API Routes
+app.use('/api/auth', authRouter);
+app.use('/api/posts', postsRouter);
+app.use('/api/comments', commentsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/users', contactsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/tags', tagsRouter);
+app.use('/api/friend-recommendations', friendRecommendationsRouter);
+app.use('/api/graph', graphRouter);
 
 // Health check endpoints
 app.get('/health', (_req, res) => {
@@ -195,11 +158,33 @@ const startServer = async (): Promise<void> => {
     }
     
     // Start server
-    app.listen(appPort, () => {
+    const server = app.listen(appPort, () => {
       logger.info(`🚀 Server running on port ${appPort}`, {
         port: appPort,
         environment: process.env.NODE_ENV || 'development',
-        nodeVersion: process.version,
+      });
+    });
+
+    // Handle server errors
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      logger.error('Server error:', error);
+      process.exit(1);
+    });
+
+    // Graceful shutdown handling
+    process.on('SIGTERM', () => {
+      logger.info('SIGTERM received, shutting down gracefully...');
+      server.close(() => {
+        logger.info('Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      logger.info('SIGINT received, shutting down gracefully...');
+      server.close(() => {
+        logger.info('Server closed');
+        process.exit(0);
       });
     });
     

@@ -16,7 +16,7 @@ for (const [key, value] of Object.entries(requiredEnvVars)) {
   }
 }
 
-export const appPort = Number(process.env.PORT || 8080);
+export const appPort = Number(process.env.PORT || 8081);
 
 // Client for public operations (with RLS enabled)
 export const supabase: SupabaseClient = createClient(
@@ -63,6 +63,13 @@ export const checkSupabaseHealth = async (): Promise<{ healthy: boolean; error?:
 // Initialize Supabase connection
 export const initializeSupabase = async (): Promise<void> => {
   logger.info('Initializing Supabase connection...');
+  
+  // Skip health check in development to allow offline development
+  if (process.env.NODE_ENV === 'development') {
+    logger.info('Development mode: Skipping Supabase health check');
+    logger.info('Supabase connection initialized (health check skipped)');
+    return;
+  }
   
   const healthCheck = await checkSupabaseHealth();
   

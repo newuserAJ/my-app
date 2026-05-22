@@ -1,112 +1,101 @@
 import { Router } from 'express';
-import { supabase } from '../config/supabase';
 import { validateBody } from '../utils/validation';
 import { authSchemas } from '../utils/validation';
 import { asyncHandler } from '../middleware/errorHandler';
 import { ValidationError, ConflictError, UnauthorizedError } from '../types/errors';
 import { logger } from '../config/logger';
-import { passwordResetRateLimit } from '../middleware/rateLimiting';
+import { AuthService } from '../services/auth.service';
 
 export const authRouter = Router();
 
-// Register endpoint
+// Register endpoint - supports both email and phone number
 authRouter.post('/register', 
   validateBody(authSchemas.register),
   asyncHandler(async (req, res) => {
-    const { email, password, firstName, lastName } = req.body;
+    const { 
+      email, 
+      phoneNumber, 
+      password, 
+      firstName, 
+      lastName, 
+      dateOfBirth, 
+      gender,
+      location,
+      language,
+      occupation,
+      school,
+      company,
+      interests,
+      age,
+      ageGroup
+    } = req.body;
     
-    logger.info('User registration attempt:', { email });
+    if (!email && !phoneNumber) {
+      throw new ValidationError('Either email or phone number is required');
+    }
     
-    // Sign up user with Supabase
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          firstName,
-          lastName,
-          fullName: `${firstName} ${lastName}`,
-        },
-      },
-    });
-    
-    if (error) {
-      logger.error('Registration failed:', { email, error: error.message });
+    try {
+      const result = await AuthService.signUp({
+        email,
+        phoneNumber,
+        password,
+        firstName,
+        lastName,
+        dateOfBirth,
+        gender,
+        location,
+        language,
+        occupation,
+        school,
+        company,
+        interests,
+        age,
+        ageGroup,
+      });
       
-      if (error.message.includes('already registered')) {
-        throw new ConflictError('User with this email already exists');
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful',
+        data: result,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      
+      if (errorMessage.includes('already registered') || errorMessage.includes('duplicate')) {
+        throw new ConflictError('User with this email/phone already exists');
       }
       
-      throw new ValidationError(error.message);
+      throw new ValidationError(errorMessage);
     }
-    
-    if (!data.user) {
-      throw new ValidationError('Registration failed');
-    }
-    
-    logger.info('User registered successfully:', { 
-      userId: data.user.id, 
-      email: data.user.email 
-    });
-    
-    res.status(201).json({
-      success: true,
-      message: 'Registration successful',
-      data: {
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          firstName,
-          lastName,
-          emailConfirmed: data.user.email_confirmed_at !== null,
-        },
-        session: data.session,
-      },
-    });
   })
 );
 
-// Login endpoint
+// Login endpoint - supports both email and phone number
 authRouter.post('/login',
   validateBody(authSchemas.login),
   asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { email, phoneNumber, password } = req.body;
     
-    logger.info('User login attempt:', { email });
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) {
-      logger.warn('Login failed:', { email, error: error.message });
-      throw new UnauthorizedError('Invalid email or password');
+    if (!email && !phoneNumber) {
+      throw new ValidationError('Either email or phone number is required');
     }
     
-    if (!data.user || !data.session) {
-      throw new UnauthorizedError('Login failed');
+    try {
+      const result = await AuthService.logIn({
+        email,
+        phoneNumber,
+        password,
+      });
+      
+      res.json({
+        success: true,
+        message: 'Login successful',
+        data: result,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      throw new UnauthorizedError(errorMessage);
     }
-    
-    logger.info('User logged in successfully:', { 
-      userId: data.user.id, 
-      email: data.user.email 
-    });
-    
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          firstName: data.user.user_metadata?.firstName,
-          lastName: data.user.user_metadata?.lastName,
-          emailConfirmed: data.user.email_confirmed_at !== null,
-        },
-        session: data.session,
-      },
-    });
   })
 );
 
@@ -116,9 +105,9 @@ authRouter.post('/logout',
     const accessToken = req.headers.authorization?.replace('Bearer ', '');
     
     if (accessToken) {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
+      try {
+        await AuthService.logOut(accessToken);
+      } catch (error) {
         logger.warn('Logout error:', error);
       }
     }
@@ -139,83 +128,57 @@ authRouter.post('/refresh',
       throw new ValidationError('Refresh token is required');
     }
     
-    const { data, error } = await supabase.auth.refreshSession({
-      refresh_token: refreshToken,
-    });
-    
-    if (error) {
-      logger.warn('Token refresh failed:', error);
-      throw new UnauthorizedError('Invalid refresh token');
+    try {
+      const result = await AuthService.refreshToken(refreshToken);
+      
+      res.json({
+        success: true,
+        message: 'Token refreshed successfully',
+        data: result,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Token refresh failed';
+      throw new UnauthorizedError(errorMessage);
     }
-    
-    res.json({
-      success: true,
-      message: 'Token refreshed successfully',
-      data: {
-        session: data.session,
-      },
-    });
   })
 );
 
 // Forgot password endpoint
 authRouter.post('/forgot-password',
-  passwordResetRateLimit,
   validateBody(authSchemas.forgotPassword),
   asyncHandler(async (req, res) => {
     const { email } = req.body;
     
-    logger.info('Password reset requested:', { email });
-    
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.FRONTEND_URL}/reset-password`,
-    });
-    
-    if (error) {
-      logger.error('Password reset failed:', { email, error: error.message });
-      throw new ValidationError(error.message);
+    try {
+      await AuthService.forgotPassword(email);
+      
+      res.json({
+        success: true,
+        message: 'Password reset email sent',
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Password reset failed';
+      throw new ValidationError(errorMessage);
     }
-    
-    res.json({
-      success: true,
-      message: 'Password reset email sent',
-    });
   })
 );
 
 // Reset password endpoint
 authRouter.post('/reset-password',
-  passwordResetRateLimit,
   validateBody(authSchemas.resetPassword),
   asyncHandler(async (req, res) => {
     const { token, newPassword } = req.body;
     
-    // Verify the reset token and update password
-    const { data, error } = await supabase.auth.verifyOtp({
-      token_hash: token,
-      type: 'recovery',
-    });
-    
-    if (error) {
-      logger.error('Password reset verification failed:', error);
-      throw new UnauthorizedError('Invalid or expired reset token');
+    try {
+      await AuthService.resetPassword(token, newPassword);
+      
+      res.json({
+        success: true,
+        message: 'Password reset successful',
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Password reset failed';
+      throw new UnauthorizedError(errorMessage);
     }
-    
-    // Update password
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-    
-    if (updateError) {
-      logger.error('Password update failed:', updateError);
-      throw new ValidationError('Failed to update password');
-    }
-    
-    logger.info('Password reset successful:', { userId: data.user?.id });
-    
-    res.json({
-      success: true,
-      message: 'Password reset successful',
-    });
   })
 );

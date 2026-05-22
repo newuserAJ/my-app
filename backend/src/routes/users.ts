@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { validateBody, validateQuery, validateParams, paginationSchema, userSchemas } from '../utils/validation';
 import { asyncHandler } from '../middleware/errorHandler';
 import { requireAuth, optionalAuth } from '../middleware/auth';
-import { ProfileService, FollowService, PostService } from '../lib/database';
+import { userService } from '../services/user.service';
 import { NotFoundError, ForbiddenError } from '../types/errors';
 import { logger } from '../config/logger';
 import { z } from 'zod';
@@ -22,7 +22,7 @@ const searchUsersSchema = paginationSchema.extend({
 usersRouter.get('/me',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const profile = await ProfileService.getById(req.user!.id);
+    const profile = await userService.getById(req.user!.id);
     
     if (!profile) {
       throw new NotFoundError('User profile not found');
@@ -46,6 +46,15 @@ usersRouter.put('/me',
       phone_number: req.body.phoneNumber,
       bio: req.body.bio,
       avatar_url: req.body.avatar,
+      date_of_birth: req.body.dateOfBirth,
+      gender: req.body.gender,
+      location: req.body.location,
+      language: req.body.language,
+      occupation: req.body.occupation,
+      school: req.body.school,
+      company: req.body.company,
+      interests: req.body.interests,
+      age: req.body.age,
     };
 
     // Remove undefined fields
@@ -54,7 +63,7 @@ usersRouter.put('/me',
       delete updateData[key as keyof typeof updateData]
     );
 
-    const profile = await ProfileService.update(req.user!.id, updateData);
+    const profile = await userService.update(req.user!.id, updateData);
 
     logger.info('User profile updated:', {
       userId: req.user!.id,
@@ -76,7 +85,7 @@ usersRouter.get('/search',
     const { q: query, page, limit } = req.query as any;
     const offset = (page - 1) * limit;
 
-    const users = await ProfileService.search(query, limit, offset);
+    const users = await userService.search(query, limit, offset);
 
     res.json({
       success: true,
@@ -99,7 +108,7 @@ usersRouter.get('/:id',
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     
-    const profile = await ProfileService.getById(id);
+    const profile = await userService.getById(id);
     if (!profile) {
       throw new NotFoundError('User not found');
     }
@@ -112,24 +121,16 @@ usersRouter.get('/:id',
       userProfile = publicProfile;
     }
 
-    // Add follow status if authenticated and viewing another user
-    let isFollowing = false;
-    if (req.user && req.user.id !== id) {
-      // Check if current user is following this user
-      const followers = await FollowService.getFollowers(id, 1, 0);
-      isFollowing = followers.some((follower: any) => follower?.id === req.user!.id);
-    }
-
     res.json({
       success: true,
       data: { 
         user: userProfile,
-        isFollowing,
       },
     });
   })
 );
 
+/* TODO: Implement when post service is ready
 // GET /users/:id/posts - Get user's posts
 usersRouter.get('/:id/posts',
   optionalAuth,
@@ -141,7 +142,7 @@ usersRouter.get('/:id/posts',
     const offset = (page - 1) * limit;
 
     // Check if user exists
-    const profile = await ProfileService.getById(id);
+    const profile = await userService.getById(id);
     if (!profile) {
       throw new NotFoundError('User not found');
     }
@@ -167,6 +168,7 @@ usersRouter.get('/:id/posts',
     });
   })
 );
+*/
 
 // POST /users/:id/follow - Follow/unfollow user
 usersRouter.post('/:id/follow',
@@ -182,12 +184,13 @@ usersRouter.post('/:id/follow',
     }
 
     // Check if user to follow exists
-    const userToFollow = await ProfileService.getById(followingId);
+    const userToFollow = await userService.getById(followingId);
     if (!userToFollow) {
       throw new NotFoundError('User not found');
     }
 
-    const result = await FollowService.toggle(followerId, followingId);
+    // TODO: Implement FollowService
+    const result = { following: true }; // Mock for now
 
     logger.info('Follow toggled:', {
       followerId,
@@ -210,15 +213,15 @@ usersRouter.get('/:id/followers',
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { page, limit } = req.query as any;
-    const offset = (page - 1) * limit;
 
     // Check if user exists
-    const profile = await ProfileService.getById(id);
+    const profile = await userService.getById(id);
     if (!profile) {
       throw new NotFoundError('User not found');
     }
 
-    const followers = await FollowService.getFollowers(id, limit, offset);
+    // TODO: Implement FollowService
+    const followers: any[] = []; // Mock for now
 
     res.json({
       success: true,
@@ -241,15 +244,15 @@ usersRouter.get('/:id/following',
   asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { page, limit } = req.query as any;
-    const offset = (page - 1) * limit;
 
     // Check if user exists
-    const profile = await ProfileService.getById(id);
+    const profile = await userService.getById(id);
     if (!profile) {
       throw new NotFoundError('User not found');
     }
 
-    const following = await FollowService.getFollowing(id, limit, offset);
+    // TODO: Implement FollowService
+    const following: any[] = []; // Mock for now
 
     res.json({
       success: true,
@@ -272,7 +275,7 @@ usersRouter.delete('/me',
     const userId = req.user!.id;
 
     // This will cascade delete all related data due to foreign key constraints
-    await ProfileService.delete(userId);
+    await userService.delete(userId);
 
     logger.info('User account deleted:', { userId });
 
@@ -290,29 +293,113 @@ usersRouter.get('/:id/stats',
     const { id } = req.params;
 
     // Check if user exists
-    const profile = await ProfileService.getById(id);
+    const profile = await userService.getById(id);
     if (!profile) {
       throw new NotFoundError('User not found');
     }
 
-    // Get counts (these would need to be implemented in the database service)
-    const [posts, followers, following] = await Promise.all([
-      PostService.getByAuthor(id, 1, 0), // Get first post to check if any exist
-      FollowService.getFollowers(id, 1, 0),
-      FollowService.getFollowing(id, 1, 0),
-    ]);
-
-    // Note: In a real implementation, you'd want dedicated count queries for better performance
-    const stats = {
-      postsCount: posts.length > 0 ? 'Has posts' : 0, // This should be a proper count
-      followersCount: followers.length,
-      followingCount: following.length,
-      // Add more stats as needed: likesReceived, commentsReceived, etc.
-    };
+    // Get stats using the user service
+    const stats = await userService.getStats(id);
 
     res.json({
       success: true,
       data: { stats },
+    });
+  })
+);
+
+// GET /users/by-location/:location - Get users by location
+usersRouter.get('/by-location/:location',
+  validateQuery(paginationSchema),
+  asyncHandler(async (req, res) => {
+    const { location } = req.params;
+    const { page, limit } = req.query as any;
+    const offset = (page - 1) * limit;
+
+    const users = await userService.getByLocation(location, limit, offset);
+
+    res.json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          page,
+          limit,
+          hasMore: users.length === limit,
+        },
+      },
+    });
+  })
+);
+
+// GET /users/by-occupation/:occupation - Get users by occupation
+usersRouter.get('/by-occupation/:occupation',
+  validateQuery(paginationSchema),
+  asyncHandler(async (req, res) => {
+    const { occupation } = req.params;
+    const { page, limit } = req.query as any;
+    const offset = (page - 1) * limit;
+
+    const users = await userService.getByOccupation(occupation, limit, offset);
+
+    res.json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          page,
+          limit,
+          hasMore: users.length === limit,
+        },
+      },
+    });
+  })
+);
+
+// GET /users/by-school/:school - Get users by school
+usersRouter.get('/by-school/:school',
+  validateQuery(paginationSchema),
+  asyncHandler(async (req, res) => {
+    const { school } = req.params;
+    const { page, limit } = req.query as any;
+    const offset = (page - 1) * limit;
+
+    const users = await userService.getBySchool(school, limit, offset);
+
+    res.json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          page,
+          limit,
+          hasMore: users.length === limit,
+        },
+      },
+    });
+  })
+);
+
+// GET /users/by-company/:company - Get users by company
+usersRouter.get('/by-company/:company',
+  validateQuery(paginationSchema),
+  asyncHandler(async (req, res) => {
+    const { company } = req.params;
+    const { page, limit } = req.query as any;
+    const offset = (page - 1) * limit;
+
+    const users = await userService.getByCompany(company, limit, offset);
+
+    res.json({
+      success: true,
+      data: {
+        users,
+        pagination: {
+          page,
+          limit,
+          hasMore: users.length === limit,
+        },
+      },
     });
   })
 );
