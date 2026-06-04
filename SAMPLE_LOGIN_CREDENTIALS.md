@@ -26,19 +26,19 @@ Your database has been successfully populated with 15 sample users using **phone
 
 ### Test Login 1 - Aishvarya
 ```
-Phone: +919876543210
+Phone: +91 9876543210
 Password: Aish@123
 ```
 
 ### Test Login 2 - Bianca  
 ```
-Phone: +919876543211
+Phone: +91 9876543211
 Password: Bian@123
 ```
 
 ### Test Login 3 - Keerthi
 ```
-Phone: +919876543218
+Phone: +91 9876543218
 Password: Keer@123
 ```
 

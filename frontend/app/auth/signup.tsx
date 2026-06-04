@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { CustomInput } from '../../src/components/CustomInput';
 import { CustomButton } from '../../src/components/CustomButton';
+import { AuthShell } from '../../src/components/AuthShell';
 import { theme } from '../../src/theme';
 
 export default function SignupScreen() {
@@ -41,7 +42,7 @@ export default function SignupScreen() {
         pathname: '/auth/name',
         params: { phoneNumber: cleanPhoneNumber(phoneNumber) },
       });
-    } catch (err) {
+    } catch {
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -50,51 +51,45 @@ export default function SignupScreen() {
 
   return (
     <ScreenContainer contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Image 
-          source={require('../../assets/images/hotake-logo.png')} 
-          style={styles.logo}
-          resizeMode="contain" 
-        />
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>
-          Enter your phone number to get started
-        </Text>
-      </View>
-
-      <View style={styles.inputRow}>
-        <View style={styles.countryCode}>
-          <Text style={styles.countryCodeText}>+91</Text>
+      <AuthShell
+        title="Create Account"
+        subtitle="Start with your mobile number and let us set up your profile."
+        footer={
+          <Text style={styles.loginText}>
+            Already have an account?{' '}
+            <Text
+              style={styles.loginLink}
+              onPress={() => router.push('/auth/login')}
+            >
+              Login
+            </Text>
+          </Text>
+        }
+      >
+        <View style={styles.inputRow}>
+          <View style={styles.countryCode}>
+            <Text style={styles.countryCodeText}>+91</Text>
+          </View>
+          <CustomInput
+            placeholder="Phone Number"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={handlePhoneChange}
+            containerStyle={styles.phoneInput}
+            maxLength={10}
+            editable={!loading}
+          />
         </View>
-        <CustomInput
-          placeholder="Phone Number"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={handlePhoneChange}
-          containerStyle={styles.phoneInput}
-          maxLength={10}
-          editable={!loading}
+
+        <CustomButton
+          title="Continue"
+          onPress={handleSignup}
+          loading={loading}
+          disabled={!validatePhoneNumber(phoneNumber) || loading}
+          style={styles.button}
+          animationType="glow"
         />
-      </View>
-
-      <CustomButton 
-        title="Continue" 
-        onPress={handleSignup} 
-        loading={loading}
-        disabled={!validatePhoneNumber(phoneNumber) || loading}
-        style={styles.button}
-        animationType="glow"
-      />
-
-      <Text style={styles.loginText}>
-        Already have an account?{' '}
-        <Text 
-          style={styles.loginLink}
-          onPress={() => router.push('/auth/login')}
-        >
-          Login here
-        </Text>
-      </Text>
+      </AuthShell>
     </ScreenContainer>
   );
 }
@@ -103,45 +98,21 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 20,
-  },
-  title: {
-    fontFamily: theme.fonts.bold,
-    fontSize: 32,
-    color: '#000000',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontFamily: theme.fonts.regular,
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 22,
+    paddingTop: 36,
   },
   inputRow: {
     flexDirection: 'row',
     width: '100%',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
   },
   countryCode: {
     width: 60,
     height: 56,
-    backgroundColor: theme.colors.inputBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: '#FFF3E9',
+    borderWidth: 1.5,
+    borderColor: '#E6CDB8',
+    borderRadius: theme.borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -156,8 +127,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   button: {
-    marginTop: 40,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 16,
   },
   loginText: {
     fontFamily: theme.fonts.regular,
@@ -167,7 +138,7 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     fontFamily: theme.fonts.semiBold,
-    color: theme.colors.primary,
+    color: theme.colors.primaryDark,
     textDecorationLine: 'underline',
   },
 });

@@ -3,22 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   Alert,
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { CustomButton } from '../../src/components/CustomButton';
+import { AuthShell } from '../../src/components/AuthShell';
 import { theme } from '../../src/theme';
 import { UserAPI } from '../../src/services/api';
-import { ContactsService, ContactInfo } from '../../src/services/contacts';
+import { ContactsService } from '../../src/services/contacts';
 
 export default function ContactsPermissionScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [contacts, setContacts] = useState<ContactInfo[]>([]);
-  const [hasLoaded, setHasLoaded] = useState(false);
 
   const handleAllowContacts = async () => {
     setLoading(true);
@@ -41,8 +39,6 @@ export default function ContactsPermissionScreen() {
         return;
       }
 
-      setContacts(filteredContacts);
-      
       await UserAPI.uploadContacts({
         contacts: filteredContacts,
       });
@@ -74,58 +70,51 @@ export default function ContactsPermissionScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Image 
-            source={require('../../assets/images/hotake-logo.png')} 
-            style={styles.logo}
-            resizeMode="contain" 
+        <AuthShell
+          title="Find Your People"
+          subtitle="Allow contacts to instantly discover people you already know."
+        >
+          <View style={styles.benefitsContainer}>
+            <View style={styles.benefit}>
+              <Text style={styles.benefitEmoji}>👥</Text>
+              <Text style={styles.benefitText}>Discover trusted mutuals faster</Text>
+            </View>
+
+            <View style={styles.benefit}>
+              <Text style={styles.benefitEmoji}>🔐</Text>
+              <Text style={styles.benefitText}>Private, secure, and encrypted matching</Text>
+            </View>
+
+            <View style={styles.benefit}>
+              <Text style={styles.benefitEmoji}>⚡</Text>
+              <Text style={styles.benefitText}>Build your network in one tap</Text>
+            </View>
+          </View>
+
+          <View style={styles.privacyContainer}>
+            <Text style={styles.privacyText}>
+              We only access contacts to find existing users. Your data is never sold or shared.
+            </Text>
+          </View>
+
+          <CustomButton
+            title="Allow Access to Contacts"
+            onPress={handleAllowContacts}
+            loading={loading}
+            disabled={loading}
+            style={styles.button}
+            animationType="glow"
           />
-          <Text style={styles.title}>Connect with Friends</Text>
-          <Text style={styles.subtitle}>
-            We can help you find people you already know
-          </Text>
-        </View>
 
-        <View style={styles.benefitsContainer}>
-          <View style={styles.benefit}>
-            <Text style={styles.benefitEmoji}>👥</Text>
-            <Text style={styles.benefitText}>Discover people you know</Text>
-          </View>
-
-          <View style={styles.benefit}>
-            <Text style={styles.benefitEmoji}>🔐</Text>
-            <Text style={styles.benefitText}>Your data is secure</Text>
-          </View>
-
-          <View style={styles.benefit}>
-            <Text style={styles.benefitEmoji}>🚀</Text>
-            <Text style={styles.benefitText}>Build your network instantly</Text>
-          </View>
-        </View>
-
-        <View style={styles.privacyContainer}>
-          <Text style={styles.privacyText}>
-            We only access your contacts to find matches on our platform. Your contacts are never shared or used for any other purpose.
-          </Text>
-        </View>
-
-        <CustomButton 
-          title="Allow Access to Contacts" 
-          onPress={handleAllowContacts} 
-          loading={loading}
-          disabled={loading}
-          style={styles.button}
-          animationType="glow"
-        />
-
-        <CustomButton 
-          title="Skip for Now" 
-          onPress={handleSkip}
-          disabled={loading}
-          style={[styles.button, styles.skipButton]}
-          textStyle={styles.skipButtonText}
-          animationType="scale"
-        />
+          <CustomButton
+            title="Skip for Now"
+            onPress={handleSkip}
+            disabled={loading}
+            style={[styles.button, styles.skipButton]}
+            textStyle={styles.skipButtonText}
+            animationType="scale"
+          />
+        </AuthShell>
       </ScrollView>
     </ScreenContainer>
   );
@@ -133,45 +122,24 @@ export default function ContactsPermissionScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 40,
+    paddingVertical: 28,
     paddingHorizontal: 20,
     alignItems: 'center',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logo: {
-    width: 60,
-    height: 60,
-    marginBottom: 20,
-  },
-  title: {
-    fontFamily: theme.fonts.bold,
-    fontSize: 28,
-    color: '#000000',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontFamily: theme.fonts.regular,
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 20,
   },
   benefitsContainer: {
     width: '100%',
-    marginBottom: 30,
+    marginBottom: 18,
   },
   benefit: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#F5F5F5',
-    borderRadius: theme.borderRadius.md,
+    paddingVertical: 13,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#EEDFD2',
   },
   benefitEmoji: {
     fontSize: 24,
@@ -187,9 +155,9 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingHorizontal: 12,
     paddingVertical: 16,
-    backgroundColor: '#F0F4FF',
-    borderRadius: theme.borderRadius.md,
-    marginBottom: 30,
+    backgroundColor: '#F6EFE8',
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: 18,
   },
   privacyText: {
     fontFamily: theme.fonts.regular,
@@ -201,9 +169,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   skipButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: theme.colors.primary,
+    borderColor: '#E2C8B5',
   },
   skipButtonText: {
     color: theme.colors.primary,

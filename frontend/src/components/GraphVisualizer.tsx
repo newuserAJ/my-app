@@ -4,15 +4,12 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Canvas } from 'react-native-canvas';
-import { GraphNode, GraphEdge, GraphData, DepthAnalysis } from '../services/graph';
+import { GraphNode, GraphEdge, GraphData } from '../services/graph';
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 interface LayoutNode {
   id: string;
@@ -253,6 +250,7 @@ export const GraphVisualizer = ({
         width={canvasWidth}
         height={canvasHeight}
         style={styles.canvas}
+        onTouchEnd={handleCanvasPress}
       />
       <View style={styles.legend}>
         <View style={styles.legendItem}>

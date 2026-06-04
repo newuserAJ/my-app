@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   ViewStyle,
   TextStyle,
+  StyleProp,
   Animated,
   Easing,
   Platform,
@@ -19,8 +20,8 @@ interface CustomButtonProps {
   loading?: boolean;
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost';
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   animationType?: 'bounce' | 'pulse' | 'scale' | 'glow';
 }
 

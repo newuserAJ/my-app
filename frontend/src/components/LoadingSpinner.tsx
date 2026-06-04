@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   text: {
-    fontFamily: theme.fonts.medium,
+    fontFamily: theme.fonts.semiBold,
     marginTop: theme.spacing.md,
     textAlign: 'center',
   },

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 let AsyncStorageImpl: any;
 
@@ -35,7 +36,7 @@ if (Platform.OS === 'web') {
   };
 } else {
   // React Native implementation
-  AsyncStorageImpl = require('@react-native-async-storage/async-storage').default;
+  AsyncStorageImpl = ReactNativeAsyncStorage;
 }
 
 export default AsyncStorageImpl;

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { CustomInput } from '../../src/components/CustomInput';
 import { CustomButton } from '../../src/components/CustomButton';
+import { AuthShell } from '../../src/components/AuthShell';
 import { theme } from '../../src/theme';
 import { useAuth } from '../../src/context/AuthContext';
 
@@ -85,74 +86,68 @@ export default function LoginScreen() {
 
   return (
     <ScreenContainer contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <Image 
-          source={require('../../assets/images/hotake-logo.png')} 
-          style={styles.logo}
-          resizeMode="contain" 
-        />
-        <Text style={styles.title}>Welcome Back!</Text>
-        <Text style={styles.subtitle}>
-          Enter your phone number and password to login
-        </Text>
-      </View>
-
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
+      <AuthShell
+        title="Welcome Back"
+        subtitle="Sign in to continue building your network."
+        footer={
+          <>
+            <Text style={styles.signupText}>
+              Don&apos;t have an account?{' '}
+              <Text
+                style={styles.signupLink}
+                onPress={() => router.push('/auth/signup')}
+              >
+                Sign up
+              </Text>
+            </Text>
+            <Text style={styles.forgotText}>
+              <Text
+                style={styles.forgotLink}
+                onPress={() => Alert.alert('Coming Soon', 'Password reset will be available soon.')}
+              >
+                Forgot password?
+              </Text>
+            </Text>
+          </>
+        }
+      >
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+        <View style={styles.inputRow}>
+          <View style={styles.countryCode}>
+            <Text style={styles.countryCodeText}>+91</Text>
+          </View>
+          <CustomInput
+            placeholder="Phone Number"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={handlePhoneChange}
+            containerStyle={styles.phoneInput}
+            maxLength={10}
+            editable={!loading}
+          />
         </View>
-      )}
 
-      <View style={styles.inputRow}>
-        <View style={styles.countryCode}>
-          <Text style={styles.countryCodeText}>+91</Text>
-        </View>
         <CustomInput
-          placeholder="Phone Number"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={handlePhoneChange}
-          containerStyle={styles.phoneInput}
-          maxLength={10}
+          placeholder="Password"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
           editable={!loading}
         />
-      </View>
 
-      <CustomInput
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        editable={!loading}
-      />
-
-      <CustomButton 
-        title="Login" 
-        onPress={handleLogin} 
-        loading={loading}
-        disabled={!validatePhoneNumber(phoneNumber) || password.length < 8 || loading}
-        style={styles.button}
-        animationType="glow"
-      />
-
-      <Text style={styles.signupText}>
-        Don't have an account?{' '}
-        <Text 
-          style={styles.signupLink}
-          onPress={() => router.push('/auth/signup')}
-        >
-          Sign up here
-        </Text>
-      </Text>
-
-      <Text style={styles.forgotText}>
-        <Text 
-          style={styles.forgotLink}
-          onPress={() => router.push('/auth/forgot-password')}
-        >
-          Forgot password?
-        </Text>
-      </Text>
+        <CustomButton
+          title="Login"
+          onPress={handleLogin}
+          loading={loading}
+          disabled={loading}
+          style={styles.button}
+          animationType="glow"
+        />
+      </AuthShell>
     </ScreenContainer>
   );
 }
@@ -161,59 +156,35 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 20,
-  },
-  title: {
-    fontFamily: theme.fonts.bold,
-    fontSize: 32,
-    color: '#000000',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontFamily: theme.fonts.regular,
-    fontSize: 16,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 40,
-    lineHeight: 22,
+    paddingTop: 36,
   },
   errorContainer: {
     width: '100%',
-    backgroundColor: '#ffebee',
+    backgroundColor: '#FFECEC',
     borderLeftWidth: 4,
-    borderLeftColor: '#d32f2f',
+    borderLeftColor: '#D94141',
     padding: 12,
-    marginBottom: 20,
-    borderRadius: 4,
+    marginBottom: 12,
+    borderRadius: 10,
   },
   errorText: {
     fontFamily: theme.fonts.regular,
-    fontSize: 14,
-    color: '#d32f2f',
+    fontSize: 13,
+    color: '#A53030',
   },
   inputRow: {
     flexDirection: 'row',
     width: '100%',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
   },
   countryCode: {
     width: 60,
     height: 56,
-    backgroundColor: theme.colors.inputBackground,
-    borderWidth: 1,
-    borderColor: theme.colors.inputBorder,
-    borderRadius: theme.borderRadius.md,
+    backgroundColor: '#FFF3E9',
+    borderWidth: 1.5,
+    borderColor: '#E6CDB8',
+    borderRadius: theme.borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -228,19 +199,19 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   button: {
-    marginTop: 40,
-    marginBottom: 20,
+    marginTop: 14,
+    marginBottom: 18,
   },
   signupText: {
     fontFamily: theme.fonts.regular,
     fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   signupLink: {
     fontFamily: theme.fonts.semiBold,
-    color: theme.colors.primary,
+    color: theme.colors.primaryDark,
     textDecorationLine: 'underline',
   },
   forgotText: {
@@ -251,7 +222,7 @@ const styles = StyleSheet.create({
   },
   forgotLink: {
     fontFamily: theme.fonts.semiBold,
-    color: theme.colors.primary,
+    color: theme.colors.primaryDark,
     textDecorationLine: 'underline',
   },
 });

@@ -49,6 +49,42 @@ export interface DepthAnalysis {
   averageConnectionsPerUser: number;
 }
 
+export interface MutualUser {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  location?: string | null;
+  company?: string | null;
+}
+
+export interface MutualsResponse {
+  count: number;
+  mutuals: MutualUser[];
+}
+
+export interface SuggestedUser {
+  user: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    full_name: string | null;
+    avatar_url: string | null;
+    location: string | null;
+    company: string | null;
+    school: string | null;
+  };
+  mutualCount: number;
+  score: number;
+  reasons: string[];
+}
+
+export interface SuggestionsResponse {
+  suggestions: SuggestedUser[];
+  count: number;
+}
+
 class GraphService {
   async getNetworkGraph(depth: number = 3, token: string): Promise<GraphData> {
     try {
@@ -96,6 +132,56 @@ class GraphService {
       return data.data;
     } catch (error) {
       console.error('Error fetching depth analysis:', error);
+      throw error;
+    }
+  }
+
+  async getMutuals(targetUserId: string, token: string, limit: number = 20): Promise<MutualsResponse> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/graph/mutuals/${targetUserId}?limit=${limit}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch mutuals');
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error('Error fetching mutuals:', error);
+      throw error;
+    }
+  }
+
+  async getSuggestions(token: string, limit: number = 20): Promise<SuggestionsResponse> {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/graph/suggestions?limit=${limit}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch suggestions');
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
       throw error;
     }
   }

@@ -38,6 +38,12 @@ interface CreateUserResult {
   error?: any;
 }
 
+interface ProfileLookup {
+  id: string;
+  email: string;
+  first_name: string | null;
+}
+
 // Sample data from the user
 const sampleUsers: UserData[] = [
   {
@@ -336,6 +342,91 @@ class DatabaseSeeder {
     };
   }
 
+  private async getSampleProfilesByFirstName(): Promise<Map<string, ProfileLookup>> {
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .select('id, email, first_name')
+      .like('email', '%@example.com');
+
+    if (error) {
+      throw error;
+    }
+
+    const profileMap = new Map<string, ProfileLookup>();
+    for (const profile of data || []) {
+      if (profile.first_name) {
+        profileMap.set(profile.first_name.toLowerCase(), profile as ProfileLookup);
+      }
+    }
+    return profileMap;
+  }
+
+  async seedMutualNetwork(): Promise<void> {
+    console.log('🕸️ Creating sample mutual network...');
+    const profileMap = await this.getSampleProfilesByFirstName();
+
+    // Deterministic graph with clusters and bridges for mutual suggestions.
+    const edgesByName: Array<[string, string]> = [
+      ['Aishvarya', 'Bianca'],
+      ['Aishvarya', 'Deepthi'],
+      ['Aishvarya', 'Indrajit'],
+      ['Aishvarya', 'Swetha'],
+      ['Bianca', 'Deepthi'],
+      ['Bianca', 'Harshini'],
+      ['Deepthi', 'Iswaryaa'],
+      ['Dhilip', 'Jenitha'],
+      ['Dhilip', 'Mokshith'],
+      ['Jenitha', 'Keerthi'],
+      ['Keerthi', 'Preetham'],
+      ['Preetham', 'Roshini'],
+      ['Roshini', 'Sneha'],
+      ['Sneha', 'Swetha'],
+      ['Indrajit', 'Keerthi'],
+      ['Indrajit', 'Rishitha'],
+      ['Rishitha', 'Roshini'],
+      ['Harshini', 'Swetha'],
+      ['Mokshith', 'Preetham'],
+    ];
+
+    const connectionRows: Array<{
+      user_a_id: string;
+      user_b_id: string;
+      connected_via_contacts: boolean;
+    }> = [];
+
+    for (const [nameA, nameB] of edgesByName) {
+      const userA = profileMap.get(nameA.toLowerCase());
+      const userB = profileMap.get(nameB.toLowerCase());
+      if (!userA || !userB) {
+        console.warn(`Skipping edge ${nameA} <-> ${nameB} (user missing)`);
+        continue;
+      }
+
+      const userAId = userA.id < userB.id ? userA.id : userB.id;
+      const userBId = userA.id < userB.id ? userB.id : userA.id;
+      connectionRows.push({
+        user_a_id: userAId,
+        user_b_id: userBId,
+        connected_via_contacts: true,
+      });
+    }
+
+    if (connectionRows.length === 0) {
+      console.log('No valid sample users found for mutual network.');
+      return;
+    }
+
+    const { error } = await this.supabase
+      .from('user_connections')
+      .upsert(connectionRows, { onConflict: 'user_a_id,user_b_id', ignoreDuplicates: true });
+
+    if (error) {
+      throw error;
+    }
+
+    console.log(`✅ Created/updated ${connectionRows.length} network edges`);
+  }
+
   async checkExistingUsers(): Promise<void> {
     console.log('🔍 Checking for existing users...');
     
@@ -433,6 +524,9 @@ async function main(): Promise<void> {
         }
         
         const result = await seeder.seedUsers();
+        if (result.success) {
+          await seeder.seedMutualNetwork();
+        }
         
         if (result.success) {
           console.log('\n🎉 Database seeding completed successfully!');

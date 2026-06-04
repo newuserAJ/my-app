@@ -1,22 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  TouchableOpacity,
-  ScrollView,
   Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
 } from 'react-native';
-import { GraphNode, GraphEdge, GraphData } from '../services/graph';
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+import { Ionicons } from '@expo/vector-icons';
+import { GraphData, GraphNode } from '../services/graph';
+import { theme } from '../theme';
 
 interface LayoutNode extends GraphNode {
   x: number;
   y: number;
   animatedX: Animated.Value;
   animatedY: Animated.Value;
+  scale: Animated.Value;
 }
 
 interface SimpleGraphVisualizerProps {
@@ -25,285 +26,361 @@ interface SimpleGraphVisualizerProps {
   animationEnabled?: boolean;
 }
 
-/**
- * Simple graph visualizer using React Native Views instead of Canvas
- * More reliable and easier to maintain than canvas-based solution
- */
-export function SimpleGraphVisualizer({ 
-  data, 
-  onNodePress, 
-  animationEnabled = true 
+const NODE_SIZE = 72;
+
+export function SimpleGraphVisualizer({
+  data,
+  onNodePress,
+  animationEnabled = true,
 }: SimpleGraphVisualizerProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const graphHeight = windowWidth >= 820 ? 560 : 440;
+  const [containerSize, setContainerSize] = useState({ width: 600, height: graphHeight });
   const [layoutNodes, setLayoutNodes] = useState<LayoutNode[]>([]);
-  const [containerSize, setContainerSize] = useState({ width: 350, height: 400 });
+  const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    calculateLayout();
-  }, [data, containerSize]);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 0,
+          duration: 1600,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
 
-  const calculateLayout = () => {
+  useEffect(() => {
     const { width, height } = containerSize;
     const centerX = width / 2;
     const centerY = height / 2;
-    const nodes: LayoutNode[] = [];
+    const maxRadius = Math.max(90, Math.min(width, height) / 2 - 70);
 
-    data.nodes.forEach((node, index) => {
+    const nodes = data.nodes.map((node) => {
       let x = centerX;
       let y = centerY;
 
-      if (node.depth === 0) {
-        // Center node (current user)
-        x = centerX;
-        y = centerY;
-      } else {
-        // Calculate positions in concentric circles
-        const radius = node.depth * 80; // Distance from center
-        const nodesAtDepth = data.nodes.filter(n => n.depth === node.depth);
-        const nodeIndexAtDepth = nodesAtDepth.findIndex(n => n.id === node.id);
-        const angleStep = (2 * Math.PI) / nodesAtDepth.length;
-        const angle = nodeIndexAtDepth * angleStep;
-        
+      if (node.depth > 0) {
+        const peers = data.nodes.filter((item) => item.depth === node.depth);
+        const index = peers.findIndex((item) => item.id === node.id);
+        const angle = (index / Math.max(peers.length, 1)) * Math.PI * 2 - Math.PI / 2;
+        const radius = Math.min(maxRadius, 95 + (node.depth - 1) * 82);
         x = centerX + radius * Math.cos(angle);
         y = centerY + radius * Math.sin(angle);
       }
 
-      // Keep nodes within bounds
-      x = Math.max(20, Math.min(width - 20, x));
-      y = Math.max(20, Math.min(height - 20, y));
-
-      nodes.push({
+      return {
         ...node,
         x,
         y,
         animatedX: new Animated.Value(animationEnabled ? centerX : x),
         animatedY: new Animated.Value(animationEnabled ? centerY : y),
-      });
+        scale: new Animated.Value(animationEnabled ? 0.2 : 1),
+      };
     });
 
     setLayoutNodes(nodes);
 
-    // Animate nodes to their positions
     if (animationEnabled) {
-      const animations = nodes.map(node => 
-        Animated.parallel([
-          Animated.spring(node.animatedX, {
-            toValue: node.x,
-            friction: 8,
-            tension: 100,
-            useNativeDriver: false,
-          }),
-          Animated.spring(node.animatedY, {
-            toValue: node.y,
-            friction: 8,
-            tension: 100,
-            useNativeDriver: false,
-          }),
-        ])
-      );
-
-      Animated.stagger(50, animations).start();
+      Animated.stagger(
+        70,
+        nodes.map((node) =>
+          Animated.parallel([
+            Animated.spring(node.animatedX, {
+              toValue: node.x,
+              friction: 8,
+              tension: 70,
+              useNativeDriver: false,
+            }),
+            Animated.spring(node.animatedY, {
+              toValue: node.y,
+              friction: 8,
+              tension: 70,
+              useNativeDriver: false,
+            }),
+            Animated.spring(node.scale, {
+              toValue: 1,
+              friction: 6,
+              tension: 90,
+              useNativeDriver: true,
+            }),
+          ])
+        )
+      ).start();
     }
-  };
+  }, [animationEnabled, containerSize, data]);
 
-  const getNodeColor = (depth: number): string => {
-    const colors = {
-      0: '#FF6B6B', // Red - You
-      1: '#4ECDC4', // Teal - Direct friends
-      2: '#45B7D1', // Blue - Friends of friends
-      3: '#96CEB4', // Green - Extended network
-      4: '#FFEAA7', // Yellow - Distant connections
-    };
-    return colors[depth as keyof typeof colors] || '#DDD';
-  };
+  const edges = useMemo(() => {
+    return data.edges
+      .map((edge) => {
+        const source = layoutNodes.find((node) => node.id === edge.source);
+        const target = layoutNodes.find((node) => node.id === edge.target);
+        if (!source || !target) return null;
 
-  const renderEdges = () => {
-    if (!layoutNodes.length) return null;
+        const dx = target.x - source.x;
+        const dy = target.y - source.y;
+        return {
+          id: `${edge.source}-${edge.target}`,
+          left: source.x,
+          top: source.y,
+          width: Math.sqrt(dx * dx + dy * dy),
+          angle: Math.atan2(dy, dx) * (180 / Math.PI),
+        };
+      })
+      .filter(Boolean);
+  }, [data.edges, layoutNodes]);
 
-    return data.edges.map((edge, index) => {
-      const sourceNode = layoutNodes.find(n => n.id === edge.source);
-      const targetNode = layoutNodes.find(n => n.id === edge.target);
-      
-      if (!sourceNode || !targetNode) return null;
-
-      const dx = targetNode.x - sourceNode.x;
-      const dy = targetNode.y - sourceNode.y;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-      return (
-        <View
-          key={`edge-${index}`}
-          style={[
-            styles.edge,
-            {
-              left: sourceNode.x,
-              top: sourceNode.y,
-              width: length,
-              transform: [{ rotate: `${angle}deg` }],
-            },
-          ]}
-        />
-      );
-    });
-  };
-
-  const renderNodes = () => {
-    return layoutNodes.map((node) => (
-      <Animated.View
-        key={node.id}
-        style={[
-          styles.nodeContainer,
-          {
-            left: animationEnabled ? node.animatedX : node.x,
-            top: animationEnabled ? node.animatedY : node.y,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.node,
-            { 
-              backgroundColor: getNodeColor(node.depth),
-              borderWidth: node.isCurrentUser ? 3 : 1,
-              borderColor: node.isCurrentUser ? '#333' : '#FFF',
-            },
-          ]}
-          onPress={() => onNodePress?.(node)}
-          activeOpacity={0.8}
-        >
-          <Text 
-            style={[
-              styles.nodeText,
-              { fontSize: node.isCurrentUser ? 12 : 10 }
-            ]}
-            numberOfLines={1}
-          >
-            {node.label.length > 8 ? node.label.substring(0, 8) : node.label}
-          </Text>
-        </TouchableOpacity>
-        
-        {/* Depth indicator */}
-        {!node.isCurrentUser && (
-          <View style={styles.depthIndicator}>
-            <Text style={styles.depthText}>{node.depth}</Text>
-          </View>
-        )}
-      </Animated.View>
-    ));
+  const animateNode = (node: LayoutNode, pressed: boolean) => {
+    Animated.spring(node.scale, {
+      toValue: pressed ? 0.9 : 1,
+      friction: 6,
+      tension: 180,
+      useNativeDriver: true,
+    }).start();
   };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-      showsHorizontalScrollIndicator={false}
-      minimumZoomScale={0.5}
-      maximumZoomScale={2.0}
-      bouncesZoom={true}
-    >
-      <View
-        style={[styles.graphContainer, containerSize]}
-        onLayout={(event) => {
-          const { width, height } = event.nativeEvent.layout;
+    <View
+      style={[styles.canvas, { height: graphHeight }]}
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        if (width > 0 && (width !== containerSize.width || height !== containerSize.height)) {
           setContainerSize({ width, height });
-        }}
-      >
-        {/* Render edges first (behind nodes) */}
-        {renderEdges()}
-        
-        {/* Render nodes on top */}
-        {renderNodes()}
-        
-        {/* Instructions overlay */}
-        <View style={styles.instructions}>
-          <Text style={styles.instructionsText}>
-            Tap nodes for details • Pinch to zoom
-          </Text>
+        }
+      }}
+    >
+      <View style={[styles.ring, styles.ringOne]} />
+      <View style={[styles.ring, styles.ringTwo]} />
+      <View style={[styles.ring, styles.ringThree]} />
+
+      {edges.map((edge) =>
+        edge ? (
+          <View
+            key={edge.id}
+            style={[
+              styles.edge,
+              {
+                left: edge.left,
+                top: edge.top,
+                width: edge.width,
+                transform: [{ rotate: `${edge.angle}deg` }],
+              },
+            ]}
+          />
+        ) : null
+      )}
+
+      {layoutNodes.map((node) => {
+        const nodeSize = node.isCurrentUser ? 82 : NODE_SIZE;
+        return (
+          <Animated.View
+            key={node.id}
+            style={[
+              styles.nodeWrap,
+              {
+                width: nodeSize,
+                height: nodeSize,
+                left: Animated.subtract(node.animatedX, nodeSize / 2),
+                top: Animated.subtract(node.animatedY, nodeSize / 2),
+                transform: [{ scale: node.scale }],
+              },
+            ]}
+          >
+            {node.isCurrentUser && (
+              <Animated.View
+                style={[
+                  styles.pulse,
+                  {
+                    transform: [
+                      {
+                        scale: pulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [1, 1.35],
+                        }),
+                      },
+                    ],
+                    opacity: pulse.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.28, 0],
+                    }),
+                  },
+                ]}
+              />
+            )}
+            <Pressable
+              style={[
+                styles.node,
+                node.isCurrentUser ? styles.currentNode : styles.connectionNode,
+              ]}
+              onPress={() => onNodePress?.(node)}
+              onPressIn={() => animateNode(node, true)}
+              onPressOut={() => animateNode(node, false)}
+            >
+              <Text style={styles.nodeText} numberOfLines={1}>
+                {node.label || 'User'}
+              </Text>
+              <Text style={styles.nodeSubtext}>
+                {node.isCurrentUser ? 'You' : `${node.depth} degree`}
+              </Text>
+            </Pressable>
+          </Animated.View>
+        );
+      })}
+
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, styles.legendDotYou]} />
+          <Text style={styles.legendText}>You</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, styles.legendDotConnection]} />
+          <Text style={styles.legendText}>Connections</Text>
+        </View>
+        <View style={styles.legendHint}>
+          <Ionicons name="hand-left-outline" size={14} color={theme.colors.textSecondary} />
+          <Text style={styles.legendText}>Tap a node</Text>
         </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FAFAFA',
-  },
-  scrollContent: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  graphContainer: {
+  canvas: {
+    width: '100%',
+    minHeight: 420,
     position: 'relative',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
     overflow: 'hidden',
+    borderRadius: 24,
+    backgroundColor: '#FFFCF9',
+  },
+  ring: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '50%',
+    left: '50%',
+    borderWidth: 1,
+    borderColor: 'rgba(224, 91, 45, 0.11)',
+  },
+  ringOne: {
+    width: 190,
+    height: 190,
+    marginLeft: -95,
+    marginTop: -95,
+    borderRadius: 95,
+  },
+  ringTwo: {
+    width: 340,
+    height: 340,
+    marginLeft: -170,
+    marginTop: -170,
+    borderRadius: 170,
+  },
+  ringThree: {
+    width: 500,
+    height: 500,
+    marginLeft: -250,
+    marginTop: -250,
+    borderRadius: 250,
   },
   edge: {
     position: 'absolute',
-    height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    height: 1.5,
+    backgroundColor: 'rgba(15, 159, 154, 0.26)',
     transformOrigin: '0 50%',
-    zIndex: 1,
   },
-  nodeContainer: {
+  nodeWrap: {
     position: 'absolute',
-    zIndex: 10,
-    alignItems: 'center',
+    zIndex: 5,
+  },
+  pulse: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 999,
+    backgroundColor: theme.colors.primary,
   },
   node: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
+    flex: 1,
+    borderRadius: 999,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    borderWidth: 2,
+  },
+  currentNode: {
+    backgroundColor: theme.colors.primary,
+    borderColor: '#FFFFFF',
+  },
+  connectionNode: {
+    backgroundColor: theme.colors.accent,
+    borderColor: '#FFFFFF',
   },
   nodeText: {
-    color: '#FFF',
-    fontFamily: 'Afacad-Bold',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  depthIndicator: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  depthText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontFamily: 'Afacad-Bold',
-  },
-  instructions: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderRadius: 8,
-    padding: 8,
-    alignItems: 'center',
-  },
-  instructionsText: {
-    color: '#FFF',
+    fontFamily: theme.fonts.bold,
     fontSize: 12,
-    fontFamily: 'Afacad-Regular',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    maxWidth: 62,
+  },
+  nodeSubtext: {
+    marginTop: 1,
+    fontFamily: theme.fonts.regular,
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.78)',
+  },
+  legend: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 14,
+    minHeight: 42,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: 1,
+    borderColor: '#F0E1D6',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendHint: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendDotYou: {
+    backgroundColor: theme.colors.primary,
+  },
+  legendDotConnection: {
+    backgroundColor: theme.colors.accent,
+  },
+  legendText: {
+    fontFamily: theme.fonts.regular,
+    fontSize: 11,
+    color: theme.colors.textSecondary,
   },
 });

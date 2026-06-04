@@ -19,6 +19,8 @@ interface User {
   interests?: string[];
   age?: number;
   ageGroup?: string;
+  bio?: string;
+  hubs?: string[];
 }
 
 interface AuthContextType {

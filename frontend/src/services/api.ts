@@ -28,8 +28,9 @@ const BASE_URL = getBaseURL();
 
 export const API_BASE_URL = BASE_URL;
 
-interface RequestOptions extends RequestInit {
+interface RequestOptions extends Omit<RequestInit, 'body' | 'headers'> {
   headers?: Record<string, string>;
+  method?: string;
 }
 
 interface ApiResponse<T> {
@@ -40,6 +41,38 @@ interface ApiResponse<T> {
     code?: string;
     message?: string;
   };
+}
+
+interface AuthSession {
+  access_token: string;
+  refresh_token?: string;
+  expires_at?: number;
+}
+
+interface AuthUser {
+  id: string;
+  email?: string;
+  phoneNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  gender?: string;
+  dateOfBirth?: string;
+  location?: string;
+  language?: string;
+  occupation?: string;
+  school?: string;
+  company?: string;
+  interests?: string[];
+  age?: number;
+  ageGroup?: string;
+  bio?: string;
+  hubs?: string[];
+}
+
+interface AuthPayload {
+  user: AuthUser;
+  session: AuthSession;
 }
 
 class ApiClient {
@@ -259,13 +292,13 @@ export const AuthAPI = {
     lastName?: string;
     gender?: string;
     dateOfBirth?: string;
-  }) => apiClient.post('/api/auth/register', payload, { skipAuth: true }),
+  }) => apiClient.post<AuthPayload>('/api/auth/register', payload, { skipAuth: true }),
 
   login: (payload: {
     email?: string;
     phoneNumber?: string;
     password: string;
-  }) => apiClient.post('/api/auth/login', payload, { skipAuth: true }),
+  }) => apiClient.post<AuthPayload>('/api/auth/login', payload, { skipAuth: true }),
 
   logout: () => apiClient.post('/api/auth/logout'),
 
@@ -300,11 +333,11 @@ export const UserAPI = {
     }),
 
   uploadContacts: (payload: {
-    contacts: Array<{
+    contacts: {
       name: string;
       phone: string;
       email?: string;
-    }>;
+    }[];
   }) => apiClient.post('/api/users/contacts', payload),
 
   getConnections: () => apiClient.get('/api/users/connections'),

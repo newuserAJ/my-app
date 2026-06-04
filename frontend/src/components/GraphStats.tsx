@@ -1,338 +1,246 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Dimensions,
-} from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GraphStats } from '../services/graph';
-
-const { width: screenWidth } = Dimensions.get('window');
+import { theme } from '../theme';
+import { InteractiveCard } from './InteractiveCard';
 
 interface GraphStatsProps {
   stats: GraphStats;
 }
 
 export const GraphStatsPanel = ({ stats }: GraphStatsProps) => {
-  const depthDistribution = [
-    { label: 'You', count: stats.depthCounts.depth0, color: '#C35129' },
-    { label: '1st Degree', count: stats.depthCounts.depth1, color: '#4ECDC4' },
-    { label: '2nd Degree', count: stats.depthCounts.depth2, color: '#45B7D1' },
-    { label: '3rd Degree', count: stats.depthCounts.depth3, color: '#96CEB4' },
-    { label: '4th Degree', count: stats.depthCounts.depth4, color: '#FFEAA7' },
-  ];
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 820;
+  const density = stats.totalNodes > 1
+    ? ((stats.totalEdges / ((stats.totalNodes * (stats.totalNodes - 1)) / 2)) * 100).toFixed(1)
+    : '0';
 
-  const maxCount = Math.max(...depthDistribution.map(d => d.count)) || 1;
+  const depthDistribution = [
+    { label: 'You', count: stats.depthCounts.depth0, color: theme.colors.primary },
+    { label: '1st degree', count: stats.depthCounts.depth1, color: theme.colors.accent },
+    { label: '2nd degree', count: stats.depthCounts.depth2, color: '#4C8EBF' },
+    { label: '3rd degree', count: stats.depthCounts.depth3, color: '#80A66A' },
+    { label: '4th degree', count: stats.depthCounts.depth4, color: '#D9A441' },
+  ];
+  const maxCount = Math.max(...depthDistribution.map(item => item.count), 1);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Summary Cards */}
-      <View style={styles.summaryGrid}>
-        <View style={styles.summaryCard}>
-          <View style={styles.cardIconContainer}>
-            <Ionicons name="people" size={24} color="#C35129" />
-          </View>
-          <Text style={styles.cardValue}>{stats.totalNodes}</Text>
-          <Text style={styles.cardLabel}>Total Network Size</Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.cardIconContainer}>
-            <Ionicons name="git-branch" size={24} color="#4ECDC4" />
-          </View>
-          <Text style={styles.cardValue}>{stats.totalEdges}</Text>
-          <Text style={styles.cardLabel}>Connections</Text>
-        </View>
+    <View style={styles.container}>
+      <View style={[styles.summaryGrid, !isDesktop && styles.stack]}>
+        <SummaryCard
+          icon="people-outline"
+          label="Network size"
+          value={String(stats.totalNodes)}
+          detail="People visible in your current reach"
+          color={theme.colors.primary}
+        />
+        <SummaryCard
+          icon="git-branch-outline"
+          label="Connections"
+          value={String(stats.totalEdges)}
+          detail="Relationships forming your network"
+          color={theme.colors.accent}
+        />
+        <SummaryCard
+          icon="pulse-outline"
+          label="Network density"
+          value={`${density}%`}
+          detail="How connected your visible network is"
+          color="#4C8EBF"
+        />
       </View>
 
-      {/* Depth Distribution Chart */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Network Depth Distribution</Text>
-        
-        {depthDistribution.map((item, index) => (
-          <View key={index} style={styles.depthRow}>
-            <View style={styles.depthLabel}>
-              <View
-                style={[
-                  styles.depthColorDot,
-                  { backgroundColor: item.color },
-                ]}
-              />
-              <Text style={styles.depthLabelText}>{item.label}</Text>
+      <View style={[styles.contentGrid, !isDesktop && styles.stack]}>
+        <View style={styles.panel}>
+          <View style={styles.sectionHeading}>
+            <View>
+              <Text style={styles.eyebrow}>RELATIONSHIP LAYERS</Text>
+              <Text style={styles.sectionTitle}>Network depth</Text>
             </View>
-
-            <View style={styles.depthBarContainer}>
-              <View
-                style={[
-                  styles.depthBar,
-                  {
-                    width: `${(item.count / maxCount) * 100}%`,
-                    backgroundColor: item.color,
-                  },
-                ]}
-              />
+            <View style={styles.reachPill}>
+              <Ionicons name="radio-outline" size={15} color={theme.colors.accentDark} />
+              <Text style={styles.reachPillText}>{stats.depthReached} hops reached</Text>
             </View>
-
-            <Text style={styles.depthCount}>{item.count}</Text>
           </View>
-        ))}
-      </View>
 
-      {/* Network Statistics */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Network Insights</Text>
-
-        <View style={styles.insightCard}>
-          <View style={styles.insightHeader}>
-            <Ionicons name="analytics" size={20} color="#45B7D1" />
-            <Text style={styles.insightTitle}>Reach</Text>
-          </View>
-          <Text style={styles.insightValue}>
-            {stats.depthReached === 0 ? '0 hops' : `${stats.depthReached} hops away`}
-          </Text>
-          <Text style={styles.insightDescription}>
-            Maximum network depth reached
-          </Text>
-        </View>
-
-        <View style={styles.insightCard}>
-          <View style={styles.insightHeader}>
-            <Ionicons name="git-network" size={20} color="#96CEB4" />
-            <Text style={styles.insightTitle}>Network Density</Text>
-          </View>
-          <Text style={styles.insightValue}>
-            {stats.totalNodes > 1
-              ? ((stats.totalEdges / ((stats.totalNodes * (stats.totalNodes - 1)) / 2)) * 100).toFixed(1)
-              : 0}
-            %
-          </Text>
-          <Text style={styles.insightDescription}>
-            Percentage of possible connections
-          </Text>
-        </View>
-
-        <View style={styles.insightCard}>
-          <View style={styles.insightHeader}>
-            <Ionicons name="trending-up" size={20} color="#FFEAA7" />
-            <Text style={styles.insightTitle}>Direct Connections</Text>
-          </View>
-          <Text style={styles.insightValue}>{stats.depthCounts.depth1}</Text>
-          <Text style={styles.insightDescription}>
-            People directly connected to you
-          </Text>
-        </View>
-      </View>
-
-      {/* Depth Explanation */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Understanding Depths</Text>
-        
-        <View style={styles.explanationCard}>
-          <View style={[styles.expLabel, { backgroundColor: '#C35129' }]}>
-            <Text style={styles.expLabelText}>0</Text>
-          </View>
-          <View style={styles.expContent}>
-            <Text style={styles.expTitle}>You</Text>
-            <Text style={styles.expDescription}>Your profile in the network</Text>
+          <View style={styles.chart}>
+            {depthDistribution.map(item => (
+              <View key={item.label} style={styles.depthRow}>
+                <View style={styles.depthMeta}>
+                  <View style={[styles.dot, { backgroundColor: item.color }]} />
+                  <Text style={styles.depthLabel}>{item.label}</Text>
+                  <Text style={styles.depthCount}>{item.count}</Text>
+                </View>
+                <View style={styles.barTrack}>
+                  <LinearGradient
+                    colors={[item.color, `${item.color}99`] as any}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.barFill, { width: `${Math.max((item.count / maxCount) * 100, item.count ? 7 : 0)}%` }]}
+                  />
+                </View>
+              </View>
+            ))}
           </View>
         </View>
 
-        <View style={styles.explanationCard}>
-          <View style={[styles.expLabel, { backgroundColor: '#4ECDC4' }]}>
-            <Text style={styles.expLabelText}>1</Text>
-          </View>
-          <View style={styles.expContent}>
-            <Text style={styles.expTitle}>Direct Friends</Text>
-            <Text style={styles.expDescription}>People connected directly to you</Text>
-          </View>
-        </View>
-
-        <View style={styles.explanationCard}>
-          <View style={[styles.expLabel, { backgroundColor: '#45B7D1' }]}>
-            <Text style={styles.expLabelText}>2</Text>
-          </View>
-          <View style={styles.expContent}>
-            <Text style={styles.expTitle}>Friends of Friends</Text>
-            <Text style={styles.expDescription}>
-              People connected through one mutual friend
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.explanationCard}>
-          <View style={[styles.expLabel, { backgroundColor: '#96CEB4' }]}>
-            <Text style={styles.expLabelText}>3</Text>
-          </View>
-          <View style={styles.expContent}>
-            <Text style={styles.expTitle}>Extended Network</Text>
-            <Text style={styles.expDescription}>
-              People connected through two mutual friends
-            </Text>
+        <View style={styles.panel}>
+          <Text style={styles.eyebrow}>WHAT IT MEANS</Text>
+          <Text style={styles.sectionTitle}>Your network at a glance</Text>
+          <View style={styles.insightList}>
+            <Insight
+              icon="flash-outline"
+              title="Direct relationships"
+              value={String(stats.depthCounts.depth1)}
+              description="People you can reach without an introduction."
+              color={theme.colors.primary}
+            />
+            <Insight
+              icon="people-circle-outline"
+              title="Warm introductions"
+              value={String(stats.depthCounts.depth2)}
+              description="People one mutual connection away."
+              color={theme.colors.accent}
+            />
+            <Insight
+              icon="telescope-outline"
+              title="Extended reach"
+              value={String(stats.depthCounts.depth3 + stats.depthCounts.depth4)}
+              description="New possibilities deeper in your network."
+              color="#4C8EBF"
+            />
           </View>
         </View>
       </View>
-
-      <View style={styles.footer} />
-    </ScrollView>
+    </View>
   );
 };
 
+function SummaryCard({
+  icon,
+  label,
+  value,
+  detail,
+  color,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  value: string;
+  detail: string;
+  color: string;
+}) {
+  return (
+    <InteractiveCard style={styles.summaryCard}>
+      <View style={styles.summaryCardInner}>
+        <View style={[styles.iconBubble, { backgroundColor: `${color}16` }]}>
+          <Ionicons name={icon} size={22} color={color} />
+        </View>
+        <Text style={styles.summaryValue}>{value}</Text>
+        <Text style={styles.summaryLabel}>{label}</Text>
+        <Text style={styles.summaryDetail}>{detail}</Text>
+      </View>
+    </InteractiveCard>
+  );
+}
+
+function Insight({
+  icon,
+  title,
+  value,
+  description,
+  color,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  title: string;
+  value: string;
+  description: string;
+  color: string;
+}) {
+  return (
+    <View style={styles.insight}>
+      <View style={[styles.insightIcon, { backgroundColor: `${color}14` }]}>
+        <Ionicons name={icon} size={20} color={color} />
+      </View>
+      <View style={styles.insightCopy}>
+        <Text style={styles.insightTitle}>{title}</Text>
+        <Text style={styles.insightDescription}>{description}</Text>
+      </View>
+      <Text style={[styles.insightValue, { color }]}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    gap: 12,
-    marginVertical: 16,
-  },
+  container: { gap: 18, paddingBottom: 30 },
+  summaryGrid: { flexDirection: 'row', gap: 16 },
+  stack: { flexDirection: 'column' },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
+    minWidth: 0,
+    borderRadius: 24,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#F0DED1',
   },
-  cardIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+  summaryCardInner: { padding: 22 },
+  iconBubble: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
   },
-  cardValue: {
-    fontSize: 24,
-    fontFamily: 'Afacad-Bold',
-    color: '#000000',
-    marginBottom: 4,
-  },
-  cardLabel: {
-    fontSize: 12,
-    color: '#999999',
-    textAlign: 'center',
-    fontFamily: 'Afacad-Regular',
-  },
-  section: {
-    marginVertical: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontFamily: 'Afacad-Bold',
-    color: '#000000',
-    marginBottom: 12,
-  },
-  depthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
-  },
-  depthLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: 100,
-    gap: 8,
-  },
-  depthColorDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  depthLabelText: {
-    fontSize: 13,
-    color: '#555555',
-    fontFamily: 'Afacad-Regular',
-  },
-  depthBarContainer: {
+  summaryValue: { fontFamily: theme.fonts.bold, fontSize: 32, color: theme.colors.ink },
+  summaryLabel: { fontFamily: theme.fonts.semiBold, fontSize: 16, color: theme.colors.text, marginTop: 2 },
+  summaryDetail: { fontFamily: theme.fonts.regular, fontSize: 14, lineHeight: 19, color: theme.colors.textSecondary, marginTop: 5 },
+  contentGrid: { flexDirection: 'row', gap: 18, alignItems: 'stretch' },
+  panel: {
     flex: 1,
-    height: 8,
-    backgroundColor: '#EEEEEE',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  depthBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  depthCount: {
-    width: 35,
-    textAlign: 'right',
-    fontSize: 13,
-    fontFamily: 'Afacad-SemiBold',
-    color: '#000000',
-  },
-  insightCard: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    minWidth: 0,
+    padding: 24,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#F0DED1',
   },
-  insightHeader: {
+  sectionHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  eyebrow: { fontFamily: theme.fonts.bold, fontSize: 11, letterSpacing: 1.4, color: theme.colors.primary },
+  sectionTitle: { fontFamily: theme.fonts.bold, fontSize: 23, color: theme.colors.ink, marginTop: 4 },
+  reachPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: theme.colors.surfaceAccent,
   },
-  insightTitle: {
-    fontSize: 14,
-    fontFamily: 'Afacad-SemiBold',
-    color: '#000000',
-  },
-  insightValue: {
-    fontSize: 20,
-    fontFamily: 'Afacad-Bold',
-    color: '#C35129',
-    marginBottom: 4,
-  },
-  insightDescription: {
-    fontSize: 12,
-    color: '#999999',
-    fontFamily: 'Afacad-Regular',
-  },
-  explanationCard: {
+  reachPillText: { fontFamily: theme.fonts.semiBold, fontSize: 12, color: theme.colors.accentDark },
+  chart: { gap: 17, marginTop: 28 },
+  depthRow: { gap: 8 },
+  depthMeta: { flexDirection: 'row', alignItems: 'center' },
+  dot: { width: 9, height: 9, borderRadius: 5, marginRight: 8 },
+  depthLabel: { flex: 1, fontFamily: theme.fonts.semiBold, fontSize: 14, color: theme.colors.text },
+  depthCount: { fontFamily: theme.fonts.bold, fontSize: 14, color: theme.colors.ink },
+  barTrack: { height: 8, borderRadius: 999, overflow: 'hidden', backgroundColor: '#F4EAE2' },
+  barFill: { height: '100%', borderRadius: 999 },
+  insightList: { gap: 12, marginTop: 22 },
+  insight: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
-    alignItems: 'flex-start',
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: '#FFF9F5',
+    borderWidth: 1,
+    borderColor: '#F4E7DD',
   },
-  expLabel: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  expLabelText: {
-    fontSize: 16,
-    fontFamily: 'Afacad-Bold',
-    color: '#FFFFFF',
-  },
-  expContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  expTitle: {
-    fontSize: 14,
-    fontFamily: 'Afacad-SemiBold',
-    color: '#000000',
-    marginBottom: 2,
-  },
-  expDescription: {
-    fontSize: 12,
-    color: '#999999',
-    fontFamily: 'Afacad-Regular',
-  },
-  footer: {
-    height: 20,
-  },
+  insightIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  insightCopy: { flex: 1 },
+  insightTitle: { fontFamily: theme.fonts.semiBold, fontSize: 15, color: theme.colors.text },
+  insightDescription: { fontFamily: theme.fonts.regular, fontSize: 13, lineHeight: 17, color: theme.colors.textSecondary, marginTop: 2 },
+  insightValue: { fontFamily: theme.fonts.bold, fontSize: 24 },
 });

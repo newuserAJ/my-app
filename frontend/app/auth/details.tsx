@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   Alert,
   ScrollView,
   TouchableOpacity,
@@ -14,6 +13,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { ScreenContainer } from '../../src/components/ScreenContainer';
 import { CustomInput } from '../../src/components/CustomInput';
 import { CustomButton } from '../../src/components/CustomButton';
+import { AuthShell } from '../../src/components/AuthShell';
 import { theme } from '../../src/theme';
 import { useAuth } from '../../src/context/AuthContext';
 
@@ -83,7 +83,6 @@ export default function DetailsScreen() {
   const [school, setSchool] = useState('');
   const [company, setCompany] = useState('');
   const [interests, setInterests] = useState('');
-  const [ageGroup, setAgeGroup] = useState<'13-17' | '18-24' | '25-34' | '35-44' | '45-54' | '55-64' | '65+'>('18-24');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -227,18 +226,11 @@ export default function DetailsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
-          <Image 
-            source={require('../../assets/images/hotake-logo.png')} 
-            style={styles.logo}
-            resizeMode="contain" 
-          />
-          <Text style={styles.title}>Almost There!</Text>
-          <Text style={styles.subtitle}>
-            Tell us a bit more about yourself
-          </Text>
-        </View>
-
+        <AuthShell
+          title="Build Your Profile"
+          subtitle="A polished profile helps trusted people find and connect with you."
+        >
+        <View style={styles.sectionCard}>
         <Text style={styles.sectionLabel}>Gender</Text>
         <View style={styles.genderContainer}>
           {(['male', 'female', 'other', 'prefer_not_to_say'] as const).map((option) => (
@@ -324,7 +316,9 @@ export default function DetailsScreen() {
             )}
           </>
         )}
+        </View>
 
+        <View style={styles.sectionCard}>
         <Text style={styles.sectionLabel}>Location (Optional)</Text>
         <CustomInput
           placeholder="City, Country"
@@ -373,7 +367,9 @@ export default function DetailsScreen() {
           editable={!loading}
           multiline
         />
+        </View>
 
+        <View style={styles.sectionCard}>
         <Text style={styles.sectionLabel}>Create Password</Text>
         <CustomInput
           placeholder="Password (min 8 characters)"
@@ -399,6 +395,7 @@ export default function DetailsScreen() {
           style={styles.button}
           animationType="glow"
         />
+        </View>
 
         <Text style={styles.loginText}>
           Already have an account?{' '}
@@ -409,6 +406,7 @@ export default function DetailsScreen() {
             Login here
           </Text>
         </Text>
+        </AuthShell>
       </ScrollView>
     </ScreenContainer>
   );
@@ -419,31 +417,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: 24,
+    paddingHorizontal: 18,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logo: {
-    width: 60,
-    height: 60,
-    marginBottom: 20,
-  },
-  title: {
-    fontFamily: theme.fonts.bold,
-    fontSize: 28,
-    color: '#000000',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontFamily: theme.fonts.regular,
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: 20,
+  sectionCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.78)',
+    borderWidth: 1,
+    borderColor: '#EEDFD2',
+    borderRadius: theme.borderRadius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 14,
   },
   sectionLabel: {
     fontFamily: theme.fonts.semiBold,
@@ -515,8 +500,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   button: {
-    marginTop: 30,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 4,
   },
   loginText: {
     fontFamily: theme.fonts.regular,

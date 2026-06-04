@@ -9,6 +9,32 @@ const router = Router();
 // Apply authentication to all routes
 router.use(requireAuth);
 
+interface ConnectionEdge {
+  user_a_id: string;
+  user_b_id: string;
+}
+
+function buildAdjacency(connections: ConnectionEdge[]): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const conn of connections) {
+    if (!map.has(conn.user_a_id)) map.set(conn.user_a_id, new Set());
+    if (!map.has(conn.user_b_id)) map.set(conn.user_b_id, new Set());
+    map.get(conn.user_a_id)!.add(conn.user_b_id);
+    map.get(conn.user_b_id)!.add(conn.user_a_id);
+  }
+  return map;
+}
+
+function getMutualIds(
+  adjacencyMap: Map<string, Set<string>>,
+  sourceUserId: string,
+  targetUserId: string
+): string[] {
+  const sourceConnections = adjacencyMap.get(sourceUserId) || new Set<string>();
+  const targetConnections = adjacencyMap.get(targetUserId) || new Set<string>();
+  return [...sourceConnections].filter((id) => targetConnections.has(id));
+}
+
 /**
  * GET /api/graph/network
  * Get the user's social network graph data
@@ -277,6 +303,233 @@ router.get('/depth-analysis', generalRateLimit, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to calculate depth analysis',
+      error: process.env.NODE_ENV === 'development' ? error : undefined,
+    });
+  }
+});
+
+/**
+ * GET /api/graph/mutuals/:targetUserId
+ * Get mutual connections between the authenticated user and target user
+ */
+router.get('/mutuals/:targetUserId', generalRateLimit, async (req, res) => {
+  try {
+    const sourceUserId = req.user!.id;
+    const { targetUserId } = req.params;
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 100);
+
+    if (!targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'targetUserId is required',
+      });
+    }
+
+    if (sourceUserId === targetUserId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot fetch mutuals with yourself',
+      });
+    }
+
+    const { data: targetUser, error: targetError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('id', targetUserId)
+      .single();
+
+    if (targetError || !targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'Target user not found',
+      });
+    }
+
+    const { data: allConnections, error: connError } = await supabaseAdmin
+      .from('user_connections')
+      .select('user_a_id, user_b_id');
+
+    if (connError) {
+      throw connError;
+    }
+
+    const adjacencyMap = buildAdjacency((allConnections || []) as ConnectionEdge[]);
+    const mutualIds = getMutualIds(adjacencyMap, sourceUserId, targetUserId);
+
+    if (mutualIds.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          count: 0,
+          mutuals: [],
+        },
+      });
+    }
+
+    const { data: mutualProfiles, error: mutualError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, first_name, last_name, full_name, avatar_url, location, company')
+      .in('id', mutualIds.slice(0, limit))
+      .eq('is_active', true);
+
+    if (mutualError) {
+      throw mutualError;
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        count: mutualIds.length,
+        mutuals: mutualProfiles || [],
+      },
+    });
+  } catch (error) {
+    logger.error('Error fetching mutuals:', {
+      userId: req.user?.id,
+      targetUserId: req.params.targetUserId,
+      error: error instanceof Error ? error.message : error,
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch mutuals',
+      error: process.env.NODE_ENV === 'development' ? error : undefined,
+    });
+  }
+});
+
+/**
+ * GET /api/graph/suggestions
+ * Get people-you-may-know suggestions with mutual-based scoring
+ */
+router.get('/suggestions', generalRateLimit, async (req, res) => {
+  try {
+    const sourceUserId = req.user!.id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 100);
+
+    const [{ data: sourceProfile, error: sourceError }, { data: allConnections, error: connError }] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('id, interests, location, company, school, language')
+        .eq('id', sourceUserId)
+        .single(),
+      supabaseAdmin
+        .from('user_connections')
+        .select('user_a_id, user_b_id'),
+    ]);
+
+    if (sourceError || !sourceProfile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Source user not found',
+      });
+    }
+
+    if (connError) {
+      throw connError;
+    }
+
+    const adjacencyMap = buildAdjacency((allConnections || []) as ConnectionEdge[]);
+    const sourceDirect = adjacencyMap.get(sourceUserId) || new Set<string>();
+
+    // Candidate pool: friends-of-friends (2nd degree), excluding self and direct connections.
+    const candidates = new Set<string>();
+    for (const directId of sourceDirect) {
+      const secondHop = adjacencyMap.get(directId) || new Set<string>();
+      for (const candidateId of secondHop) {
+        if (candidateId !== sourceUserId && !sourceDirect.has(candidateId)) {
+          candidates.add(candidateId);
+        }
+      }
+    }
+
+    if (candidates.size === 0) {
+      return res.json({
+        success: true,
+        data: {
+          suggestions: [],
+          count: 0,
+        },
+      });
+    }
+
+    const candidateIds = [...candidates];
+    const { data: candidateProfiles, error: candidatesError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, first_name, last_name, full_name, avatar_url, interests, location, company, school, language')
+      .in('id', candidateIds)
+      .eq('is_active', true);
+
+    if (candidatesError) {
+      throw candidatesError;
+    }
+
+    const sourceInterests = new Set(sourceProfile.interests || []);
+    const ranked = (candidateProfiles || []).map((candidate) => {
+      const mutualCount = getMutualIds(adjacencyMap, sourceUserId, candidate.id).length;
+      const candidateInterests = new Set(candidate.interests || []);
+      const commonInterests = [...sourceInterests].filter((interest) =>
+        candidateInterests.has(interest)
+      ).length;
+      const sameLocation = sourceProfile.location && candidate.location && sourceProfile.location === candidate.location ? 1 : 0;
+      const sameCompany = sourceProfile.company && candidate.company && sourceProfile.company === candidate.company ? 1 : 0;
+      const sameSchool = sourceProfile.school && candidate.school && sourceProfile.school === candidate.school ? 1 : 0;
+      const sameLanguage = sourceProfile.language && candidate.language && sourceProfile.language === candidate.language ? 1 : 0;
+
+      // Mutuals-first score (Instagram/LinkedIn style):
+      // mutuals dominate; profile affinity adds tie-break quality.
+      const score =
+        mutualCount * 100 +
+        commonInterests * 20 +
+        sameLocation * 25 +
+        sameCompany * 20 +
+        sameSchool * 15 +
+        sameLanguage * 10;
+
+      const reasons: string[] = [];
+      if (mutualCount > 0) reasons.push(`${mutualCount} mutual connection${mutualCount > 1 ? 's' : ''}`);
+      if (sameCompany) reasons.push('same company');
+      if (sameSchool) reasons.push('same school');
+      if (sameLocation) reasons.push('same location');
+      if (commonInterests > 0) reasons.push(`${commonInterests} shared interest${commonInterests > 1 ? 's' : ''}`);
+
+      return {
+        user: {
+          id: candidate.id,
+          first_name: candidate.first_name,
+          last_name: candidate.last_name,
+          full_name: candidate.full_name,
+          avatar_url: candidate.avatar_url,
+          location: candidate.location,
+          company: candidate.company,
+          school: candidate.school,
+        },
+        mutualCount,
+        score,
+        reasons,
+      };
+    });
+
+    const suggestions = ranked
+      .sort((a, b) => b.score - a.score || b.mutualCount - a.mutualCount)
+      .slice(0, limit);
+
+    return res.json({
+      success: true,
+      data: {
+        suggestions,
+        count: suggestions.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Error fetching suggestions:', {
+      userId: req.user?.id,
+      error: error instanceof Error ? error.message : error,
+    });
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch suggestions',
       error: process.env.NODE_ENV === 'development' ? error : undefined,
     });
   }
